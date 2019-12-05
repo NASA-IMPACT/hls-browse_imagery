@@ -82,6 +82,7 @@ class Browse:
             HIGH_VAL * (extracted_data[indices] - self.low_thres) / self.diff
         )
         extracted_data = extracted_data.astype('float32')
+        extracted_data = extracted_data.astype(rasterio.uint8)
         file_name = self.file_name.split('/')[-1]
         tiff_file_name = self.prepare_geotiff(extracted_data, file_name)
         thumbnail_file_name = self.prepare_thumbnail(extracted_data, file_name)
@@ -124,6 +125,7 @@ class Browse:
     def prepare_thumbnail(self, extracted_data, file_name):
         thumbnail_file_name = file_name.replace('.hdf', '.png')
         extracted_data = np.rollaxis(extracted_data, 0, 3).astype('uint8')
+        extracted_data = np.rollaxis(extracted_data, 0, 3)
         img = Image.fromarray(extracted_data)
         img.save(THUMBNAIL_LOCATION.format(thumbnail_file_name))
         return thumbnail_file_name
