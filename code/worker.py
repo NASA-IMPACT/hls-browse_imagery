@@ -34,6 +34,7 @@ NUM_CHANNELS = 3
 
 # for lambda
 FILE_LOCATION = "./{}"
+FILE_LOCATION = "/tmp/{}"
 TRUE_COLOR_LOCATION = FILE_LOCATION.format("true_color/{}")
 THUMBNAIL_LOCATION = FILE_LOCATION.format("thumbnails/{}")
 
