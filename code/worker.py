@@ -33,7 +33,6 @@ SENTINEL_BANDS = ['B04', 'B03', 'B02']
 NUM_CHANNELS = 3
 
 # for lambda
-FILE_LOCATION = "./{}"
 FILE_LOCATION = "/tmp/{}"
 TRUE_COLOR_LOCATION = FILE_LOCATION.format("true_color/{}")
 THUMBNAIL_LOCATION = FILE_LOCATION.format("thumbnails/{}")
@@ -81,7 +80,6 @@ class Browse:
         extracted_data[indices] = (
             HIGH_VAL * (extracted_data[indices] - self.low_thres) / self.diff
         )
-        extracted_data = extracted_data.astype('float32')
         extracted_data = extracted_data.astype(rasterio.uint8)
         file_name = self.file_name.split('/')[-1]
         tiff_file_name = self.prepare_geotiff(extracted_data, file_name)
@@ -91,43 +89,44 @@ class Browse:
     def prepare_geotiff(self, extracted_data, file_name):
         thumbnail_file_name = file_name.replace('.hdf', '.png')
         tiff_file_name = TRUE_COLOR_LOCATION.format(file_name.replace('.hdf', '.tiff'))
-        alpha_value = (extracted_data[0:3, :, :] == 0).all(0)
-
         with rasterio.open(self.file_name) as src_file:
             with MemoryFile() as memfile:
                 src_profile = src_file.profile
-                print(src_profile)
-                src_profile.update(dtype='float32', count=4, driver='GTiff', photometric='RGBA')
-                with memfile.open(
-                    **src_profile
-                ) as tiff_file:
+                src_profile.update(
+                    dtype=rasterio.uint8,
+                    count=NUM_CHANNELS,
+                    nodata=None,
+                    driver='GTiff',
+                    interleave='pixel'
+                )
+                with memfile.open(**src_profile) as tiff_file:
                     for index, data in enumerate(extracted_data, start=1):
                         tiff_file.write(data, index)
-                # tiff_file.write(alpha_value, len(extracted_data) + 1)
-                bands = memfile.open()
-                memfile.write_mask(alpha_value)
-                raster_meta = self.rasterio_meta(src_file, NUM_CHANNELS)
-                print(raster_meta)
-                with rasterio.open(tiff_file_name, 'w', **raster_meta) as geotiff_file:
-                    for index in range(1, bands.count + 1):
-                        reproject(
-                            source=rasterio.band(bands, index),
-                            destination=rasterio.band(geotiff_file, index),
-                            src_transform=src_profile['transform'],
-                            src_crs=src_profile['crs'],
-                            dst_transform=raster_meta['transform'],
-                            dst_crs=raster_meta['crs'],
-                            resampling=Resampling.nearest
-                        )
-
+                self.reproject_geotiff(memfile, tiff_file_name)
         return tiff_file_name
+
+    def reproject_geotiff(self, memfile, tiff_file_name):
+        bands = memfile.open()
+        src_profile = bands.profile
+        raster_meta = self.rasterio_meta(bands, NUM_CHANNELS)
+        with rasterio.open(tiff_file_name, 'w', **raster_meta) as geotiff_file:
+            for index in range(1, NUM_CHANNELS + 1):
+                reproject(
+                    source=rasterio.band(bands, index),
+                    destination=rasterio.band(geotiff_file, index),
+                    src_transform=src_profile['transform'],
+                    src_crs=src_profile['crs'],
+                    dst_transform=raster_meta['transform'],
+                    dst_crs=raster_meta['crs'],
+                    resampling=Resampling.nearest
+                )
 
     def prepare_thumbnail(self, extracted_data, file_name):
         thumbnail_file_name = file_name.replace('.hdf', '.png')
-        extracted_data = np.rollaxis(extracted_data, 0, 3).astype('uint8')
         extracted_data = np.rollaxis(extracted_data, 0, 3)
         img = Image.fromarray(extracted_data)
-        img.save(THUMBNAIL_LOCATION.format(thumbnail_file_name))
+        thumbnail_file_name = THUMBNAIL_LOCATION.format(thumbnail_file_name)
+        img.save(thumbnail_file_name)
         return thumbnail_file_name
 
     def rasterio_meta(self, src, channel_num):
@@ -139,23 +138,14 @@ class Browse:
             rasterio.Dataset.profile: modified meta file
         """
         transform, width, height = calculate_default_transform(
-                    src.crs, DST_CRS, src.width, src.height, *src.bounds
-                )
+            src.crs, DST_CRS, src.width, src.height, *src.bounds
+        )
         meta = src.profile
         meta.update(
-            count=channel_num + 1,
-            driver='GTiff',
             crs=DST_CRS,
             transform=transform,
             width=width,
-            height=height,
-            nodata=0,
-            photometric='RGBA',
-            dtype='float32',
-            colorinterp=(
-                ColorInterp.red, ColorInterp.green,
-                ColorInterp.blue, ColorInterp.alpha
-            )
+            height=height
         )
         return meta
 
