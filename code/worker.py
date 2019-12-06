@@ -30,7 +30,7 @@ SENTINEL_ID = 'S30'
 LANDSAT_BANDS = ['band04', 'band03', 'band02']
 SENTINEL_BANDS = ['B04', 'B03', 'B02']
 
-NUM_CHANNELS = 4
+NUM_CHANNELS = 3
 
 # for lambda
 FILE_LOCATION = "./{}"
@@ -89,7 +89,8 @@ class Browse:
     def prepare_geotiff(self, extracted_data, file_name):
         thumbnail_file_name = file_name.replace('.hdf', '.png')
         tiff_file_name = TRUE_COLOR_LOCATION.format(file_name.replace('.hdf', '.tiff'))
-        alpha_values = (255 * (extracted_data[:, :, :] == 0).all(0)).astype(rasterio.uint8)
+        # removing alpha values for now, will revisit this on later time.
+        # alpha_values = (255 * (extracted_data[:, :, :] == 0).all(0)).astype(rasterio.uint8)
         with rasterio.open(self.file_name) as src_file:
             with MemoryFile() as memfile:
                 src_profile = src_file.profile
@@ -103,7 +104,7 @@ class Browse:
                 with memfile.open(**src_profile) as tiff_file:
                     for index, data in enumerate(extracted_data, start=1):
                         tiff_file.write(data, index)
-                    tiff_file.write(alpha_values, NUM_CHANNELS)
+                    # tiff_file.write(alpha_values, NUM_CHANNELS)
                 self.reproject_geotiff(memfile, tiff_file_name)
         return tiff_file_name
 
