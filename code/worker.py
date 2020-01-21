@@ -30,6 +30,9 @@ SENTINEL_ID = 'S30'
 LANDSAT_BANDS = ['band04', 'band03', 'band02']
 SENTINEL_BANDS = ['B04', 'B03', 'B02']
 
+# based off of Browse Image ICD for GIBS
+DOWNSCALE_FACTOR = 2.71131987537e-4/2.74658203125e-4
+
 NUM_CHANNELS = 3
 
 IMG_SIZE = 1000
@@ -71,6 +74,7 @@ class Browse:
         for band in self.bands:
             band_data = data_file.select(band)
             extracted_data.append(band_data.get())
+        data_file.end()
         extracted_data = np.array(extracted_data)
         extracted_data[np.where(extracted_data <= self.low_thres)] = self.low_value
         if self.stretch == LOG_STRETCH:
@@ -113,6 +117,7 @@ class Browse:
         bands = memfile.open()
         src_profile = bands.profile
         raster_meta = self.rasterio_meta(bands, NUM_CHANNELS)
+
         with rasterio.open(tiff_file_name, 'w', **raster_meta) as geotiff_file:
             for index in range(1, NUM_CHANNELS + 1):
                 reproject(
@@ -122,7 +127,7 @@ class Browse:
                     src_crs=src_profile['crs'],
                     dst_transform=raster_meta['transform'],
                     dst_crs=raster_meta['crs'],
-                    resampling=Resampling.nearest
+                    resampling=Resampling.bilinear
                 )
 
     def prepare_thumbnail(self, extracted_data, file_name):
@@ -143,7 +148,7 @@ class Browse:
             rasterio.Dataset.profile: modified meta file
         """
         transform, width, height = calculate_default_transform(
-            src.crs, DST_CRS, src.width, src.height, *src.bounds
+            src.crs, DST_CRS, src.width * DOWNSCALE_FACTOR, src.height * DOWNSCALE_FACTOR, *src.bounds
         )
         meta = src.profile
         meta.update(
