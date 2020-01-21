@@ -91,21 +91,20 @@ class Browse:
         tiff_file_name = TRUE_COLOR_LOCATION.format(file_name.replace('.hdf', '.tiff'))
         # removing alpha values for now, will revisit this on later time.
         # alpha_values = (255 * (extracted_data[:, :, :] == 0).all(0)).astype(rasterio.uint8)
-        with rasterio.open(self.file_name) as src_file:
-            with MemoryFile() as memfile:
-                src_profile = src_file.profile
-                src_profile.update(
-                    dtype=rasterio.uint8,
-                    count=NUM_CHANNELS,
-                    nodata=None,
-                    driver='GTiff',
-                    interleave='pixel'
-                )
-                with memfile.open(**src_profile) as tiff_file:
-                    for index, data in enumerate(extracted_data, start=1):
-                        tiff_file.write(data, index)
-                    # tiff_file.write(alpha_values, NUM_CHANNELS)
-                self.reproject_geotiff(memfile, tiff_file_name)
+        src_profile = rasterio.open(self.file_name).profile
+        with MemoryFile() as memfile:
+            src_profile.update(
+                dtype=rasterio.uint8,
+                count=NUM_CHANNELS,
+                nodata=None,
+                driver='GTiff',
+                interleave='pixel'
+            )
+            with memfile.open(**src_profile) as tiff_file:
+                for index, data in enumerate(extracted_data, start=1):
+                    tiff_file.write(data, index)
+                # tiff_file.write(alpha_values, NUM_CHANNELS)
+            self.reproject_geotiff(memfile, tiff_file_name)
         return tiff_file_name
 
     def reproject_geotiff(self, memfile, tiff_file_name):
