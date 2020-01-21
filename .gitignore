@@ -1,0 +1,5 @@
+code/thumbnails/*
+code/true_color/*
+.DS_Store
+bundle/*
+code/__pycache__/*
