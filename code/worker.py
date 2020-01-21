@@ -32,6 +32,8 @@ SENTINEL_BANDS = ['B04', 'B03', 'B02']
 
 NUM_CHANNELS = 3
 
+IMG_SIZE = 1000
+
 # for lambda
 FILE_LOCATION = "./{}"
 TRUE_COLOR_LOCATION = FILE_LOCATION.format("true_color/{}")
@@ -128,6 +130,7 @@ class Browse:
         extracted_data = np.rollaxis(extracted_data, 0, 3)
         img = Image.fromarray(extracted_data)
         thumbnail_file_name = THUMBNAIL_LOCATION.format(thumbnail_file_name)
+        img = img.resize((IMG_SIZE, IMG_SIZE))
         img.save(thumbnail_file_name)
         return thumbnail_file_name
 
