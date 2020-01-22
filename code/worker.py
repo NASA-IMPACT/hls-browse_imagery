@@ -31,7 +31,7 @@ LANDSAT_BANDS = ['band04', 'band03', 'band02']
 SENTINEL_BANDS = ['B04', 'B03', 'B02']
 
 # based off of Browse Image ICD for GIBS
-DOWNSCALE_FACTOR = 2.71131987537e-4/2.74658203125e-4
+DEST_RES = 2.74658203125e-4
 
 NUM_CHANNELS = 3
 
@@ -148,7 +148,12 @@ class Browse:
             rasterio.Dataset.profile: modified meta file
         """
         transform, width, height = calculate_default_transform(
-            src.crs, DST_CRS, src.width * DOWNSCALE_FACTOR, src.height * DOWNSCALE_FACTOR, *src.bounds
+            src.crs,
+            DST_CRS,
+            src.width,
+            src.width,
+            *src.bounds,
+            resolution=(DEST_RES, DEST_RES)
         )
         meta = src.profile
         meta.update(
