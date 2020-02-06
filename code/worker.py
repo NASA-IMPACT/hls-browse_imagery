@@ -80,6 +80,7 @@ class Browse:
             exit(0)
         else:
             self.stretch = stretch
+        self.attributes = {}
         self.define_high_low()
         self.select_constelletion()
 
@@ -153,13 +154,14 @@ class Browse:
             src_profile.update(
                 dtype=rasterio.uint8,
                 count=NUM_CHANNELS,
-                nodata=None,
+                nodata=0,
                 driver='GTiff',
                 interleave='pixel'
             )
             with memfile.open(**src_profile) as tiff_file:
                 for index, data in enumerate(extracted_data, start=1):
                     tiff_file.write(data, index)
+                # removing alpha values for now, will revisit this on later time.
                 # tiff_file.write(alpha_values, NUM_CHANNELS)
             self.reproject_geotiff(memfile, tiff_file_name)
         return tiff_file_name
@@ -174,7 +176,8 @@ class Browse:
         """
         bands = memfile.open()
         src_profile = bands.profile
-        raster_meta = self.rasterio_meta(bands, NUM_CHANNELS)
+
+        raster_meta = self.rasterio_meta(bands)
 
         with rasterio.open(tiff_file_name, 'w', **raster_meta) as geotiff_file:
             for index in range(1, NUM_CHANNELS + 1):
@@ -232,6 +235,7 @@ class Browse:
         with rasterio.open(file_name, "w", **output_meta) as final_output_file:
             final_output_file.write(data)
         print('merge done')
+
     def put_to_grid(self, tiff_file_name):
         """
         Public:
@@ -259,19 +263,20 @@ class Browse:
             output_file.write(data)
         print('merge done')
 
+    def rasterio_meta(self, src, bounds=None):
         """Form the meta for the new projection using source profile
         Args:
             src (rasterio object): source rasterio.Dataset object
-            channel_num (integer): number of channels included in the GeoTIFF
         Returns:
             rasterio.Dataset.profile: modified meta file
         """
+        bounds = bounds or src.bounds
         transform, width, height = calculate_default_transform(
             src.crs,
             DST_CRS,
             src.width,
             src.width,
-            *src.bounds,
+            *bounds,
             resolution=(DEST_RES, DEST_RES)
         )
         meta = src.profile
@@ -279,10 +284,12 @@ class Browse:
             crs=DST_CRS,
             transform=transform,
             width=width,
-            height=height
+            height=height,
+            nodata=0.0
         )
         return meta
 
+    def default_value(self, file_name):
         """
         Public:
             Extract metadata from the tiff file together with xml file
@@ -296,6 +303,24 @@ class Browse:
           browse.default_value(<merged_product_filename>)
           # => { 'ProviderProductId': 'bigger_HLS.L30.T17M.2016005.v1.5.tiff' ... }
         """
+        metadata = METADATA_FORMAT
+        time_strs = self.attributes['SENSING_TIME'].split('; ')
+        start_time = self.datetime_from_str(time_strs[0][:26])
+        end_time = self.datetime_from_str(time_strs[-1][:26])
+        created_timestamp = os.path.getctime(file_name)
+        created_date = datetime.datetime.fromtimestamp(created_timestamp)\
+            .replace(tzinfo=datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+        partial_id, data_day = file_name.split('.')[2:4]
+        metadata['ProviderProductId'] = os.path.basename(file_name)
+        metadata['PartialId'] = partial_id
+        metadata['DataDay'] = data_day
+        metadata['DataStartDateTime'] = time_strs[0]
+        metadata['DataEndDateTime'] = time_strs[-1]
+        metadata['ProductionDateTime'] = created_date
+        return metadata, start_time, end_time
+
+
+    def extract_metadata(self, file_name):
         """
         Public: Extract metadata from the tiff file together with xml file
                 and writes it backout.
@@ -306,6 +331,29 @@ class Browse:
           browse = Browse(<sampledata>)
           browse.extract_metadata()
         """
+        metadata_file_name = file_name.replace('.tiff', '.xml')
+
+        print(self.attributes['SENSING_TIME'])
+
+        metadata, start_time, end_time = self.default_value(file_name)
+
+        # read data that already exists for the given file
+        if os.path.exists(metadata_file_name):
+            with open(metadata_file_name) as metadata_file:
+                metadata = xmltodict.parse(metadata_file.read())[ROOT_KEY]
+
+        file_start_time = self.datetime_from_str(metadata['DataEndDateTime'])
+        file_end_time = self.datetime_from_str(metadata['DataEndDateTime'])
+
+        # overwrite dates if necessary
+        file_start_time = start_time if file_start_time > start_time else file_start_time
+        file_end_time = end_time if file_end_time < end_time else file_end_time
+
+        metadata['DataStartDateTime'] = self.datetime_to_str(file_start_time)
+        metadata['DataEndDateTime'] = self.datetime_to_str(file_end_time)
+
+        with open(metadata_file_name, 'wb') as metadata_file:
+            metadata_file.write(dicttoxml({ ROOT_KEY: metadata }, root=False, attr_type=False))
 
     @classmethod
     def datetime_to_str(cls, datetime_obj):
