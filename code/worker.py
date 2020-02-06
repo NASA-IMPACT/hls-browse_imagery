@@ -133,6 +133,7 @@ class Browse:
         file_name = self.file_name.split('/')[-1]
         tiff_file_name = self.prepare_geotiff(extracted_data, file_name)
         thumbnail_file_name = self.prepare_thumbnail(extracted_data, file_name)
+        self.put_to_grid_file_based(tiff_file_name)
         return [tiff_file_name, thumbnail_file_name]
 
     def prepare_geotiff(self, extracted_data, file_name):
@@ -203,13 +204,34 @@ class Browse:
         img.save(thumbnail_file_name)
         return thumbnail_file_name
 
-    def rasterio_meta(self, src, channel_num):
+    def put_to_grid_file_based(self, tiff_file_name):
         """
         Public:
             Puts the granules into grid based on filenaming convention
         Args:
             tiff_file_name - file to be put into grid
         """
+        src = rasterio.open(tiff_file_name)
+        file_name = tiff_file_name.split('/')[-1].split('.')
+        file_name[2] = file_name[2][0:4]
+        file_name = '.'.join(file_name)
+        if not os.path.exists(file_name):
+            with rasterio.open(file_name, "w", **src.profile) as output_file:
+                for index in list(range(1, 4)):
+                    output_file.write(np.zeros((src.profile['width'], src.profile['height'])).astype(rasterio.uint8), index)
+        self.extract_metadata(file_name)
+        output = rasterio.open(file_name)
+        bounds = src.bounds
+        bounds = [bounds.left, bounds.bottom, bounds.right, bounds.top]
+        bounds[0] = bounds[0] if bounds[0] < output.bounds.left else output.bounds.left
+        bounds[1] = bounds[1] if bounds[1] < output.bounds.bottom else output.bounds.bottom
+        bounds[2] = bounds[2] if bounds[2] > output.bounds.right else output.bounds.right
+        bounds[3] = bounds[3] if bounds[3] > output.bounds.top else output.bounds.top
+        data, output_transform = merge.merge([output, src], bounds, (DEST_RES, DEST_RES), nodata=0)
+        output_meta = self.rasterio_meta(src, bounds)
+        with rasterio.open(file_name, "w", **output_meta) as final_output_file:
+            final_output_file.write(data)
+        print('merge done')
         """
         Public:
             Puts the granules into grid based on lat lon boundary of the file
