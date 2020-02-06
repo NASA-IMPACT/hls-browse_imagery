@@ -232,12 +232,33 @@ class Browse:
         with rasterio.open(file_name, "w", **output_meta) as final_output_file:
             final_output_file.write(data)
         print('merge done')
+    def put_to_grid(self, tiff_file_name):
         """
         Public:
             Puts the granules into grid based on lat lon boundary of the file
         Args:
             tiff_file_name - file to be put into grid
         """
+        src = rasterio.open(tiff_file_name)
+        tile_index = MGRS().toMGRS(src.bounds.top, src.bounds.left, MGRSPrecision=0)
+        tile_index = tile_index.decode('utf-8')[:-2]
+        bounds = lat_lon_boundary(tile_index)
+        raster_meta = self.rasterio_meta(src, bounds)
+        size = [raster_meta['width'], raster_meta['height']]
+        file_name = tiff_file_name.split('/')[-1].split('.')
+        file_name[2] = tile_index
+        file_name = '.'.join(file_name)
+        if not os.path.exists(file_name):
+            with rasterio.open(file_name, "w", **raster_meta) as output_file:
+                for index in list(range(1, 4)):
+                    output_file.write(np.zeros((src.profile['width'], src.profile['height'])).astype(rasterio.uint8), index)
+        output = rasterio.open(file_name)
+        print('merge start')
+        data, output_meta = merge.merge([src, output], bounds, (DEST_RES, DEST_RES), nodata=0)
+        with rasterio.open(file_name, "w", **raster_meta) as output_file:
+            output_file.write(data)
+        print('merge done')
+
         """Form the meta for the new projection using source profile
         Args:
             src (rasterio object): source rasterio.Dataset object
