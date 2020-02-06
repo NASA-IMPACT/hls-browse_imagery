@@ -84,6 +84,10 @@ class Browse:
         self.select_constelletion()
 
     def define_high_low(self):
+        """
+        Public:
+            Define High and Low values as thresholds based on the stretch type defined by user.
+        """
         self.high_thres = HIGH_THRES
         self.low_thres = LOW_THRES
         self.low_value = LINEAR_LOW_VAL
@@ -94,16 +98,25 @@ class Browse:
         self.diff = self.high_thres - self.low_thres
 
     def select_constelletion(self):
+        """
+        Public:
+            Based on file name of the granule it decides on which bands to use for image generation
+        """
         self.bands = LANDSAT_BANDS
         if SENTINEL_ID in self.file_name:
             self.bands = SENTINEL_BANDS
 
     def prepare(self):
+        """
+        Public:
+            Handles reprojection of file, conversion of hdf into GeoTIFF
+        """
         data_file = SD(self.file_name, SDC.READ)
         extracted_data = list()
         for band in self.bands:
             band_data = data_file.select(band)
             extracted_data.append(band_data.get())
+        self.attributes = data_file.attributes()
         data_file.end()
         extracted_data = np.array(extracted_data)
         extracted_data[np.where(extracted_data <= self.low_thres)] = self.low_value
@@ -123,6 +136,13 @@ class Browse:
         return [tiff_file_name, thumbnail_file_name]
 
     def prepare_geotiff(self, extracted_data, file_name):
+        """
+        Public:
+            Prepare Geotiff based on extracted_data and store it in file_name
+        Args:
+            extracted_data - numpy array from granule file
+            file_name - Name of the granule file
+        """
         thumbnail_file_name = file_name.replace('.hdf', '.png')
         tiff_file_name = TRUE_COLOR_LOCATION.format(file_name.replace('.hdf', '.tiff'))
         # removing alpha values for now, will revisit this on later time.
@@ -144,6 +164,13 @@ class Browse:
         return tiff_file_name
 
     def reproject_geotiff(self, memfile, tiff_file_name):
+        """
+        Public:
+            Reproject GeoTIFF from memfile to tiff_file_name
+        Args:
+            memfile - rasterio memory file
+            tiff_file_name - tiff file being written
+        """
         bands = memfile.open()
         src_profile = bands.profile
         raster_meta = self.rasterio_meta(bands, NUM_CHANNELS)
@@ -161,6 +188,13 @@ class Browse:
                 )
 
     def prepare_thumbnail(self, extracted_data, file_name):
+        """
+        Public:
+            Creates thumbnail of the granule
+        Args:
+            extracted_date - numpy array of the image
+            file_name - Name of the file being opened
+        """
         thumbnail_file_name = file_name.replace('.hdf', '.png')
         extracted_data = np.rollaxis(extracted_data, 0, 3)
         img = Image.fromarray(extracted_data)
@@ -170,6 +204,18 @@ class Browse:
         return thumbnail_file_name
 
     def rasterio_meta(self, src, channel_num):
+        """
+        Public:
+            Puts the granules into grid based on filenaming convention
+        Args:
+            tiff_file_name - file to be put into grid
+        """
+        """
+        Public:
+            Puts the granules into grid based on lat lon boundary of the file
+        Args:
+            tiff_file_name - file to be put into grid
+        """
         """Form the meta for the new projection using source profile
         Args:
             src (rasterio object): source rasterio.Dataset object
@@ -193,6 +239,55 @@ class Browse:
             height=height
         )
         return meta
+
+        """
+        Public:
+            Extract metadata from the tiff file together with xml file
+                and writes it backout.
+        Args:
+            file_name - set default values for metadata extracted.
+        Returns:
+            Dict: { 'ProviderProductId': 'bigger_HLS.L30.T17M.2016005.v1.5.tiff' ... }
+        Examples
+          browse = Browse(<sampledata>)
+          browse.default_value(<merged_product_filename>)
+          # => { 'ProviderProductId': 'bigger_HLS.L30.T17M.2016005.v1.5.tiff' ... }
+        """
+        """
+        Public: Extract metadata from the tiff file together with xml file
+                and writes it backout.
+        Args:
+            file_name - Name of the file whose metadata is being created
+
+        Examples
+          browse = Browse(<sampledata>)
+          browse.extract_metadata()
+        """
+
+    @classmethod
+    def datetime_to_str(cls, datetime_obj):
+        """
+        Public:
+            Create datetime string from datetime object in UTC time and ISO format
+        Args:
+            datetime_obj - Datetime object
+        Returns:
+            extracted datetime object
+        """
+        return datetime_obj.replace(tzinfo=datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+
+    @classmethod
+    def datetime_from_str(cls, datetime_str):
+        """
+        Public:
+            Create datetime object from string
+        Args:
+            datetime_str - Datetime string in ISO format
+        Returns:
+            extracted datetime object
+        """
+        return datetime.datetime.strptime(datetime_str.replace('Z', '')[:26], DATE_PATTERN)
+
 
 if __name__ == "__main__":
     file_name = sys.argv[1]
