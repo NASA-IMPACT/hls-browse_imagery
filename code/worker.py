@@ -49,7 +49,7 @@ DEST_RES = 2.74658203125e-4
 DST_CRS = { 'init': 'EPSG:4326' }
 
 IMG_SIZE = 1000
-NUM_CHANNELS = 3
+NUM_CHANNELS = 4
 
 
 # File related constants
@@ -147,8 +147,7 @@ class Browse:
         """
         thumbnail_file_name = file_name.replace('.hdf', '.png')
         tiff_file_name = TRUE_COLOR_LOCATION.format(file_name.replace('.hdf', '.tiff'))
-        # removing alpha values for now, will revisit this on later time.
-        # alpha_values = (255 * (extracted_data[:, :, :] == 0).all(0)).astype(rasterio.uint8)
+        alpha_values = (255 * (extracted_data[:, :, :] != 0).all(0)).astype(rasterio.uint8)
         src_profile = rasterio.open(self.file_name).profile
         with MemoryFile() as memfile:
             src_profile.update(
@@ -156,13 +155,14 @@ class Browse:
                 count=NUM_CHANNELS,
                 nodata=0,
                 driver='GTiff',
-                interleave='pixel'
+                interleave='pixel',
+                compress='lzw'
             )
             with memfile.open(**src_profile) as tiff_file:
                 for index, data in enumerate(extracted_data, start=1):
                     tiff_file.write(data, index)
                 # removing alpha values for now, will revisit this on later time.
-                # tiff_file.write(alpha_values, NUM_CHANNELS)
+                tiff_file.write(alpha_values, NUM_CHANNELS)
             self.reproject_geotiff(memfile, tiff_file_name)
         return tiff_file_name
 
