@@ -11,8 +11,8 @@ HLS_BUCKET = "hls-browse-image"
 HLS_FILE_NAME = "HLS_CorrectedReflectance_TrueColor_{}"
 THUMBNAIL_FILE_NAME = "HLS_CorrectedReflectance_Thumbnail_{}"
 
+# Method to be called from aws lambda functions
 def handler(event, context):
-    # Method to be called from aws lambda functions
     results = []
     for record in event['Records']:
 

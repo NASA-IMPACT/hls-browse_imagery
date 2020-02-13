@@ -220,7 +220,7 @@ class Browse:
         file_name = '.'.join(file_name)
         if not os.path.exists(file_name):
             with rasterio.open(file_name, "w", **src.profile) as output_file:
-                for index in list(range(1, 4)):
+                for index in list(range(1, src.count + 1)):
                     output_file.write(np.zeros((src.profile['width'], src.profile['height'])).astype(rasterio.uint8), index)
         self.extract_metadata(file_name)
         output = rasterio.open(file_name)
@@ -231,6 +231,7 @@ class Browse:
         bounds[2] = bounds[2] if bounds[2] > output.bounds.right else output.bounds.right
         bounds[3] = bounds[3] if bounds[3] > output.bounds.top else output.bounds.top
         data, output_transform = merge.merge([output, src], bounds, (DEST_RES, DEST_RES), nodata=0)
+        output.close()
         output_meta = self.rasterio_meta(src, bounds)
         with rasterio.open(file_name, "w", **output_meta) as final_output_file:
             final_output_file.write(data)
@@ -304,7 +305,10 @@ class Browse:
           # => { 'ProviderProductId': 'bigger_HLS.L30.T17M.2016005.v1.5.tiff' ... }
         """
         metadata = METADATA_FORMAT
-        time_strs = self.attributes['SENSING_TIME'].split('; ')
+        splitter = '; '
+        if ' + ' in self.attributes['SENSING_TIME']:
+            splitter = ' + '
+        time_strs = self.attributes['SENSING_TIME'].split(splitter)
         start_time = self.datetime_from_str(time_strs[0][:26])
         end_time = self.datetime_from_str(time_strs[-1][:26])
         created_timestamp = os.path.getctime(file_name)
