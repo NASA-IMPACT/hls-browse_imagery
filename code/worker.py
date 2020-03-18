@@ -45,7 +45,7 @@ SENTINEL_ID = 'S30'
 
 # Image configurations
 # based off of Browse Image ICD for GIBS
-DEST_RES = 2.74658203125e-4
+DESTINATION_RESOULTION = 2.74658203125e-4
 DST_CRS = { 'init': 'EPSG:4326' }
 
 IMG_SIZE = 1000
@@ -221,7 +221,10 @@ class Browse:
         if not os.path.exists(file_name):
             with rasterio.open(file_name, "w", **src.profile) as output_file:
                 for index in list(range(1, src.count + 1)):
-                    output_file.write(np.zeros((src.profile['width'], src.profile['height'])).astype(rasterio.uint8), index)
+                    output_file.write(
+                        np.zeros(
+                            (src.profile['width'], src.profile['height'])
+                        ).astype(rasterio.uint8), index)
         self.extract_metadata(file_name)
         output = rasterio.open(file_name)
         bounds = src.bounds
@@ -230,7 +233,12 @@ class Browse:
         bounds[1] = bounds[1] if bounds[1] < output.bounds.bottom else output.bounds.bottom
         bounds[2] = bounds[2] if bounds[2] > output.bounds.right else output.bounds.right
         bounds[3] = bounds[3] if bounds[3] > output.bounds.top else output.bounds.top
-        data, output_transform = merge.merge([output, src], bounds, (DEST_RES, DEST_RES), nodata=0)
+        data, output_transform = merge.merge(
+            [output, src],
+            bounds,
+            (DESTINATION_RESOULTION, DESTINATION_RESOULTION),
+            nodata=0
+        )
         output.close()
         output_meta = self.rasterio_meta(src, bounds)
         with rasterio.open(file_name, "w", **output_meta) as final_output_file:
@@ -259,7 +267,12 @@ class Browse:
                     output_file.write(np.zeros((src.profile['width'], src.profile['height'])).astype(rasterio.uint8), index)
         output = rasterio.open(file_name)
         print('merge start')
-        data, output_meta = merge.merge([src, output], bounds, (DEST_RES, DEST_RES), nodata=0)
+        data, output_meta = merge.merge(
+            [src, output],
+            bounds,
+            (DESTINATION_RESOULTION, DESTINATION_RESOULTION),
+            nodata=0
+        )
         with rasterio.open(file_name, "w", **raster_meta) as output_file:
             output_file.write(data)
         print('merge done')
@@ -278,7 +291,7 @@ class Browse:
             src.width,
             src.width,
             *bounds,
-            resolution=(DEST_RES, DEST_RES)
+            resolution=(DESTINATION_RESOULTION, DESTINATION_RESOULTION)
         )
         meta = src.profile
         meta.update(
