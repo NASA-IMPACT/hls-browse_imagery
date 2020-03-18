@@ -20,7 +20,7 @@ def handler(event, context):
         bucket = record['s3']['bucket']['name']
         file_name = record['s3']['object']['key']
         if '.hdf' not in file_name:
-          break
+            break
         output_file_name = file_name.replace('.hdf', '.tiff')
         output_file_name = HLS_FILE_NAME.format(output_file_name)
 
@@ -28,7 +28,7 @@ def handler(event, context):
         thumbnail_file_name = THUMBNAIL_FILE_NAME.format(thumbnail_file_name)
 
         # Download the file locally
-        orig_file_name = "{}-{}".format(uuid.uuid4(), file_name)
+        orig_file_name = f"{uuid.uuid4()}-{file_name}"
         S3_CLIENT.download_file(bucket, file_name, '/tmp/{}'.format(orig_file_name))
 
         # Call the worker, setting the environment variables
