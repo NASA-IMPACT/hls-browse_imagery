@@ -22,11 +22,11 @@ from dicttoxml import dicttoxml
 
 
 # Calculation configurations
-HIGH_THRES = 1600
+HIGH_THRES = 7500
 HIGH_VAL = 255.
 
 LINEAR_LOW_VAL = 0
-LOG_LOW_VAL = 1
+LOG_LOW_VAL = math.e
 LOW_THRES = 100
 
 LINEAR_STRETCH = 'linear'
