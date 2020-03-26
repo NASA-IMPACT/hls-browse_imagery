@@ -46,7 +46,7 @@ SENTINEL_ID = 'S30'
 # Image configurations
 # based off of Browse Image ICD for GIBS
 DESTINATION_RESOULTION = 2.74658203125e-4
-DST_CRS = { 'init': 'EPSG:4326' }
+DESTINATION_CRS = { 'init': 'EPSG:4326' }
 
 IMG_SIZE = 1000
 NUM_CHANNELS = 4
@@ -287,7 +287,7 @@ class Browse:
         bounds = bounds or src.bounds
         transform, width, height = calculate_default_transform(
             src.crs,
-            DST_CRS,
+            DESTINATION_CRS,
             src.width,
             src.width,
             *bounds,
@@ -295,7 +295,7 @@ class Browse:
         )
         meta = src.profile
         meta.update(
-            crs=DST_CRS,
+            crs=DESTINATION_CRS,
             transform=transform,
             width=width,
             height=height,
