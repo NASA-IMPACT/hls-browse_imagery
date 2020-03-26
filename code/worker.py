@@ -64,7 +64,7 @@ METADATA_FORMAT = {
     "PartialId": ""
 }
 
-ROOT_KEY = 'ImageMetadata'
+ROOT_KEY = 'ImageryMetadata'
 
 
 # for lambda
