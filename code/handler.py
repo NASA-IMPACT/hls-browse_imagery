@@ -24,9 +24,6 @@ def handler(event, context):
         output_file_name = file_name.replace('.hdf', '.tiff')
         output_file_name = HLS_FILE_NAME.format(output_file_name)
 
-        thumbnail_file_name = file_name.replace('.hdf', '.png')
-        thumbnail_file_name = THUMBNAIL_FILE_NAME.format(thumbnail_file_name)
-
         # Download the file locally
         orig_file_name = "{}-{}".format(uuid.uuid4(), file_name)
         S3_CLIENT.download_file(bucket, file_name, '/tmp/{}'.format(orig_file_name))
@@ -36,7 +33,7 @@ def handler(event, context):
         output = subprocess.check_output(command, shell=True)
 
         # Upload the output of the worker to S3
-        processed_geotiff, thumbnail = output.strip().split('\n')
+        processed_geotiff = output.strip().split('\n')
 
         S3_CLIENT.upload_file(processed_geotiff, HLS_BUCKET, output_file_name)
         S3_CLIENT.upload_file(thumbnail.strip(), HLS_BUCKET, thumbnail_file_name)

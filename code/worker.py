@@ -22,11 +22,11 @@ from dicttoxml import dicttoxml
 
 
 # Calculation configurations
-HIGH_THRES = 1600
+HIGH_THRES = 7500
 HIGH_VAL = 255.
 
 LINEAR_LOW_VAL = 0
-LOG_LOW_VAL = 1
+LOG_LOW_VAL = math.e
 LOW_THRES = 100
 
 LINEAR_STRETCH = 'linear'
@@ -36,10 +36,7 @@ STRETCHES = [LINEAR_STRETCH, LOG_STRETCH]
 
 
 # Instrument based configurations
-LANDSAT_BANDS = ['band04', 'band03', 'band02']
 LANDSAT_ID = 'L30'
-
-SENTINEL_BANDS = ['B04', 'B03', 'B02']
 SENTINEL_ID = 'S30'
 
 
@@ -64,13 +61,12 @@ METADATA_FORMAT = {
     "PartialId": ""
 }
 
-ROOT_KEY = 'ImageMetadata'
+ROOT_KEY = 'ImageryMetadata'
 
 
 # for lambda
 FILE_LOCATION = "./{}"
 TRUE_COLOR_LOCATION = FILE_LOCATION.format("true_color/{}")
-THUMBNAIL_LOCATION = FILE_LOCATION.format("thumbnails/{}")
 
 class Browse:
 
@@ -81,8 +77,8 @@ class Browse:
         else:
             self.stretch = stretch
         self.attributes = {}
+        self.bands = ["B04","B03","B02"]
         self.define_high_low()
-        self.select_constelletion()
 
     def define_high_low(self):
         """
@@ -98,24 +94,18 @@ class Browse:
             self.low_value = LOG_LOW_VAL
         self.diff = self.high_thres - self.low_thres
 
-    def select_constelletion(self):
-        """
-        Public:
-            Based on file name of the granule it decides on which bands to use for image generation
-        """
-        self.bands = LANDSAT_BANDS
-        if SENTINEL_ID in self.file_name:
-            self.bands = SENTINEL_BANDS
-
     def prepare(self):
         """
         Public:
             Handles reprojection of file, conversion of hdf into GeoTIFF
         """
-        data_file = SD(self.file_name, SDC.READ)
+        #data_file = SD(self.file_name, SDC.READ)
         extracted_data = list()
         for band in self.bands:
-            band_data = data_file.select(band)
+            data_file = self.file_name.format(band)
+            print(data_file)
+            with rasterio.open(data_file) as src:
+                print(dir(src))
             extracted_data.append(band_data.get())
         self.attributes = data_file.attributes()
         data_file.end()
@@ -133,9 +123,8 @@ class Browse:
         extracted_data = extracted_data.astype(rasterio.uint8)
         file_name = self.file_name.split('/')[-1]
         tiff_file_name = self.prepare_geotiff(extracted_data, file_name)
-        thumbnail_file_name = self.prepare_thumbnail(extracted_data, file_name)
         self.put_to_grid_file_based(tiff_file_name)
-        return [tiff_file_name, thumbnail_file_name]
+        return tiff_file_name
 
     def prepare_geotiff(self, extracted_data, file_name):
         """
@@ -145,7 +134,6 @@ class Browse:
             extracted_data - numpy array from granule file
             file_name - Name of the granule file
         """
-        thumbnail_file_name = file_name.replace('.hdf', '.png')
         tiff_file_name = TRUE_COLOR_LOCATION.format(file_name.replace('.hdf', '.tiff'))
         alpha_values = (255 * (extracted_data[:, :, :] != 0).all(0)).astype(rasterio.uint8)
         src_profile = rasterio.open(self.file_name).profile
@@ -156,7 +144,7 @@ class Browse:
                 nodata=0,
                 driver='GTiff',
                 interleave='pixel',
-                compress='lzw'
+                compress='deflate'
             )
             with memfile.open(**src_profile) as tiff_file:
                 for index, data in enumerate(extracted_data, start=1):
@@ -191,22 +179,6 @@ class Browse:
                     resampling=Resampling.bilinear
                 )
 
-    def prepare_thumbnail(self, extracted_data, file_name):
-        """
-        Public:
-            Creates thumbnail of the granule
-        Args:
-            extracted_date - numpy array of the image
-            file_name - Name of the file being opened
-        """
-        thumbnail_file_name = file_name.replace('.hdf', '.png')
-        extracted_data = np.rollaxis(extracted_data, 0, 3)
-        img = Image.fromarray(extracted_data)
-        thumbnail_file_name = THUMBNAIL_LOCATION.format(thumbnail_file_name)
-        img = img.resize((IMG_SIZE, IMG_SIZE))
-        img.save(thumbnail_file_name)
-        return thumbnail_file_name
-
     def put_to_grid_file_based(self, tiff_file_name):
         """
         Public:
@@ -231,7 +203,12 @@ class Browse:
         bounds[2] = bounds[2] if bounds[2] > output.bounds.right else output.bounds.right
         bounds[3] = bounds[3] if bounds[3] > output.bounds.top else output.bounds.top
         data, output_transform = merge.merge([output, src], bounds, (DEST_RES, DEST_RES), nodata=0)
+        print('Closing files')
+        output.close()
+        del(output)
         output_meta = self.rasterio_meta(src, bounds)
+        src.close()
+        del(src)
         with rasterio.open(file_name, "w", **output_meta) as final_output_file:
             final_output_file.write(data)
         print('merge done')
@@ -304,6 +281,8 @@ class Browse:
           # => { 'ProviderProductId': 'bigger_HLS.L30.T17M.2016005.v1.5.tiff' ... }
         """
         metadata = METADATA_FORMAT
+        sensing_time = self.attributes['SENSING_TIME']
+        splitter = '+ ' if '+ ' in sensing_time else '; '
         time_strs = self.attributes['SENSING_TIME'].split('; ')
         start_time = self.datetime_from_str(time_strs[0][:26])
         end_time = self.datetime_from_str(time_strs[-1][:26])
@@ -383,6 +362,5 @@ class Browse:
 if __name__ == "__main__":
     file_name = sys.argv[1]
     browse = Browse(file_name, stretch='log')
-    geotiff_file_name, thumbnail_file_name = browse.prepare()
+    geotiff_file_name  = browse.prepare()
     print(geotiff_file_name)
-    print(thumbnail_file_name)
