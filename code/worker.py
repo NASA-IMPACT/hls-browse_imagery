@@ -69,8 +69,8 @@ class Browse:
         Public:
             Define High and Low values as thresholds based on the stretch type defined by user.
         """
-        self.high_thres = math.log(self.high_thres)
-        self.low_thres = math.log(self.low_thres)
+        self.high_thres = math.log(HIGH_THRES)
+        self.low_thres = math.log(LOW_THRES)
         self.low_value = LOG_LOW_VAL
         self.diff = self.high_thres - self.low_thres
 
