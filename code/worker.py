@@ -103,12 +103,10 @@ class Browse:
         extracted_data = list()
         for band in self.bands:
             data_file = self.file_name.format(band)
-            print(data_file)
             with rasterio.open(data_file) as src:
-                print(dir(src))
-            extracted_data.append(band_data.get())
-        self.attributes = data_file.attributes()
-        data_file.end()
+                band_data = src.read()
+            extracted_data.append(np.squeeze(band_data))
+        self.src_profile = src.meta
         extracted_data = np.array(extracted_data)
         extracted_data[np.where(extracted_data <= self.low_thres)] = self.low_value
         if self.stretch == LOG_STRETCH:
@@ -134,11 +132,10 @@ class Browse:
             extracted_data - numpy array from granule file
             file_name - Name of the granule file
         """
-        tiff_file_name = TRUE_COLOR_LOCATION.format(file_name.replace('.hdf', '.tiff'))
+        tiff_file_name = TRUE_COLOR_LOCATION.format(file_name.replace('.{}',''))
         alpha_values = (255 * (extracted_data[:, :, :] != 0).all(0)).astype(rasterio.uint8)
-        src_profile = rasterio.open(self.file_name).profile
         with MemoryFile() as memfile:
-            src_profile.update(
+            self.src_profile.update(
                 dtype=rasterio.uint8,
                 count=NUM_CHANNELS,
                 nodata=0,
@@ -146,11 +143,12 @@ class Browse:
                 interleave='pixel',
                 compress='deflate'
             )
-            with memfile.open(**src_profile) as tiff_file:
+            with memfile.open(**self.src_profile) as tiff_file:
                 for index, data in enumerate(extracted_data, start=1):
-                    tiff_file.write(data, index)
+                    tiff_file.write(data,index)
                 # removing alpha values for now, will revisit this on later time.
                 tiff_file.write(alpha_values, NUM_CHANNELS)
+            print("TIFF file written")
             self.reproject_geotiff(memfile, tiff_file_name)
         return tiff_file_name
 
@@ -164,9 +162,10 @@ class Browse:
         """
         bands = memfile.open()
         src_profile = bands.profile
-
+        print(src_profile)
         raster_meta = self.rasterio_meta(bands)
-
+        print(raster_meta)
+        exit()
         with rasterio.open(tiff_file_name, 'w', **raster_meta) as geotiff_file:
             for index in range(1, NUM_CHANNELS + 1):
                 reproject(
@@ -189,12 +188,14 @@ class Browse:
         src = rasterio.open(tiff_file_name)
         file_name = tiff_file_name.split('/')[-1].split('.')
         file_name[2] = file_name[2][0:4]
+        file_name[-1] = "tiff" if not file_name[-1].endswith("tiff") else file_name[-1]
         file_name = '.'.join(file_name)
+        print(file_name)
         if not os.path.exists(file_name):
             with rasterio.open(file_name, "w", **src.profile) as output_file:
                 for index in list(range(1, 4)):
                     output_file.write(np.zeros((src.profile['width'], src.profile['height'])).astype(rasterio.uint8), index)
-        self.extract_metadata(file_name)
+        #self.extract_metadata(file_name)
         output = rasterio.open(file_name)
         bounds = src.bounds
         bounds = [bounds.left, bounds.bottom, bounds.right, bounds.top]
@@ -310,7 +311,12 @@ class Browse:
           browse = Browse(<sampledata>)
           browse.extract_metadata()
         """
-        metadata_file_name = file_name.replace('.tiff', '.xml')
+        print(file_name)
+        name_array = self.file_name.split('/')
+        print(name_array)
+        bucket = name_array[2]
+        key = "/".join(name_array[3:])
+        metadata_file_name = file_name.replace('.tif', '.xml')
 
         print(self.attributes['SENSING_TIME'])
 

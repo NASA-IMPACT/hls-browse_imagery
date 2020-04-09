@@ -21,16 +21,26 @@ def download_and_create(bucket_name,prefix=''):
             )
     bucket = s3.Bucket(bucket_name)
     granule_name_old = None
+    count = 0
     for obj in bucket.objects.all():
         granule_name_new = obj.key.split('/')[0]
         if granule_name_new != granule_name_old:
             granule_name_old = granule_name_new
-            file_name = "s3://" + "/".join([bucket_name,obj.key.replace("ACmask","{}")])
+            count +=1
+            print(granule_name_new)
+            print(count)
+            if count < 7:
+                pass
+            else:
+                file_name = "s3://" + "/".join([bucket_name,obj.key.replace("ACmask","{}")])
 
-            print("running for:", file_name)
-            browse = Browse(file_name, stretch='log')
-            geotiff_file_name = browse.prepare()
+                print("running for:", file_name)
+                browse = Browse(file_name, stretch='log')
+                geotiff_file_name = browse.prepare()
+                del(browse)
+                print("Done:", geotiff_file_name)
     exit()
+    '''
     for obj in bucket.objects.filter(Prefix=prefix):
       if obj.key == prefix:
         continue
@@ -49,7 +59,7 @@ def download_and_create(bucket_name,prefix=''):
       os.remove(f"./true_color/{file_name.replace('.hdf', '.tiff')}")
       print('====================')
       gc.collect()
-
+    '''
 
 run_option = "debug"
 
