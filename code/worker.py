@@ -29,23 +29,11 @@ LINEAR_LOW_VAL = 0
 LOG_LOW_VAL = math.e
 LOW_THRES = 100
 
-LINEAR_STRETCH = 'linear'
-LOG_STRETCH = 'log'
-
-STRETCHES = [LINEAR_STRETCH, LOG_STRETCH]
-
-
-# Instrument based configurations
-LANDSAT_ID = 'L30'
-SENTINEL_ID = 'S30'
-
-
 # Image configurations
 # based off of Browse Image ICD for GIBS
 DEST_RES = 2.74658203125e-4
 DST_CRS = { 'init': 'EPSG:4326' }
 
-IMG_SIZE = 1000
 NUM_CHANNELS = 4
 
 
@@ -70,12 +58,8 @@ TRUE_COLOR_LOCATION = FILE_LOCATION.format("true_color/{}")
 
 class Browse:
 
-    def __init__(self, file_name, stretch=LINEAR_STRETCH):
+    def __init__(self, file_name):
         self.file_name = file_name
-        if stretch not in STRETCHES:
-            exit(0)
-        else:
-            self.stretch = stretch
         self.attributes = {}
         self.bands = ["B04","B03","B02"]
         self.define_high_low()
@@ -85,13 +69,9 @@ class Browse:
         Public:
             Define High and Low values as thresholds based on the stretch type defined by user.
         """
-        self.high_thres = HIGH_THRES
-        self.low_thres = LOW_THRES
-        self.low_value = LINEAR_LOW_VAL
-        if self.stretch == LOG_STRETCH:
-            self.high_thres = math.log(self.high_thres)
-            self.low_thres = math.log(self.low_thres)
-            self.low_value = LOG_LOW_VAL
+        self.high_thres = math.log(self.high_thres)
+        self.low_thres = math.log(self.low_thres)
+        self.low_value = LOG_LOW_VAL
         self.diff = self.high_thres - self.low_thres
 
     def prepare(self):
@@ -109,8 +89,7 @@ class Browse:
         self.src_profile = src.meta
         extracted_data = np.array(extracted_data)
         extracted_data[np.where(extracted_data <= self.low_thres)] = self.low_value
-        if self.stretch == LOG_STRETCH:
-            extracted_data = np.log(extracted_data)
+        extracted_data = np.log(extracted_data)
         extracted_data[np.where(extracted_data >= self.high_thres)] = HIGH_VAL
         indices = np.where(
             (extracted_data > self.low_thres) & (extracted_data < self.high_thres)
@@ -367,6 +346,6 @@ class Browse:
 
 if __name__ == "__main__":
     file_name = sys.argv[1]
-    browse = Browse(file_name, stretch='log')
+    browse = Browse(file_name)
     geotiff_file_name  = browse.prepare()
     print(geotiff_file_name)
