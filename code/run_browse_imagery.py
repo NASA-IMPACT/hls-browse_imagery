@@ -35,7 +35,7 @@ def download_and_create(bucket_name,prefix=''):
                 file_name = "s3://" + "/".join([bucket_name,obj.key.replace("ACmask","{}")])
 
                 print("running for:", file_name)
-                browse = Browse(file_name, stretch='log')
+                browse = Browse(file_name)
                 geotiff_file_name = browse.prepare()
                 del(browse)
                 print("Done:", geotiff_file_name)
