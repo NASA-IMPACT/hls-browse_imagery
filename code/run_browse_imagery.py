@@ -36,7 +36,35 @@ def download_and_create(bucket_name,prefix):
             print("Done:", geotiff_file_name)
             gc.collect()
 
+def create_and_move_to_folders(extension):
+    directories = set()
+    for file_name in glob(extension):
+        date = file_name.split(".")[3]
+        split = file_name.split(".")[1]
+        folder_name = f"{split}_NBAR_{date[0:4]}{date[4:7]}/"
+        directories.add(folder_name)
+        if not(os.path.exists(folder_name)):
+            os.mkdir(folder_name)
+        print(shutil.move(file_name, folder_name))
+    return folder_name
+
+def zip_and_push(folder_name):
+    date = folder_name.split("_")[-1][:-1]
+    split = folder_name.split("_")[0]
+    print(split,date)
+    zip_file = folder_name[:-1] + ".tgz"
+    os.system("tar -czvf " + zip_file + " " + folder_name +  "*")
+    creds = update_credentials.assume_role('arn:aws:iam::611670965994:role/gcc-S3Test','brian_test')
+    s3 = boto3.client('s3',
+            aws_access_key_id=creds['AccessKeyId'],
+            aws_secret_access_key=creds['SecretAccessKey'],
+            aws_session_token=creds['SessionToken']
+            )
+    key = "/".join([split,date[0:4],date[4:7],zip_file])
+    s3.upload_file(zip_file,"hls-browse-imagery",key)
+
 run_option = "prod"
+data_day = "2020072"
 
 buckets = {
         "debug":"hls-debug-output",
@@ -45,25 +73,16 @@ buckets = {
 
 prefixes = {
         "debug":"",
-        "prod":"S30/data/2020072/"
+        "prod":"S30/data/" + data_day + "/"
         }
 
 # download s30 data and create merged geotiffs.
 download_and_create(buckets[run_option], prefix=prefixes[run_option])
 
-def create_and_move_to_folders(extension):
-  directories = set()
-  for file_name in glob(extension):
-    print(file_name.split("."))
-    date = file_name.split(".")[3]
-    split = file_name.split(".")[1]
-    folder_name = f"{split}_NBAR_{date[0:4]}_{date[4:]}/"
-    directories.add(folder_name)
-    if not(os.path.exists(folder_name)):
-      os.mkdir(folder_name)
-    print(shutil.move(file_name, folder_name))
-
 # move xml files
-create_and_move_to_folders('*.xml')
+folder_name = create_and_move_to_folders('*.xml')
 # move tiff files
-create_and_move_to_folders('*.tiff')
+folder_name = create_and_move_to_folders('*.tiff')
+
+#zip and push browse imagery to GCC
+zip_and_push(folder_name)
