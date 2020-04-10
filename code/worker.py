@@ -7,6 +7,8 @@ import datetime
 import numpy as np
 import rasterio.merge as merge
 import xmltodict
+import update_credentials
+import boto3
 
 from glob import glob
 from mgrs import MGRS
@@ -127,7 +129,7 @@ class Browse:
                     tiff_file.write(data,index)
                 # removing alpha values for now, will revisit this on later time.
                 tiff_file.write(alpha_values, NUM_CHANNELS)
-            print("TIFF file written")
+            print("TIFF file written", tiff_file_name)
             self.reproject_geotiff(memfile, tiff_file_name)
         return tiff_file_name
 
@@ -141,10 +143,7 @@ class Browse:
         """
         bands = memfile.open()
         src_profile = bands.profile
-        print(src_profile)
         raster_meta = self.rasterio_meta(bands)
-        print(raster_meta)
-        exit()
         with rasterio.open(tiff_file_name, 'w', **raster_meta) as geotiff_file:
             for index in range(1, NUM_CHANNELS + 1):
                 reproject(
@@ -169,12 +168,11 @@ class Browse:
         file_name[2] = file_name[2][0:4]
         file_name[-1] = "tiff" if not file_name[-1].endswith("tiff") else file_name[-1]
         file_name = '.'.join(file_name)
-        print(file_name)
         if not os.path.exists(file_name):
             with rasterio.open(file_name, "w", **src.profile) as output_file:
                 for index in list(range(1, 4)):
                     output_file.write(np.zeros((src.profile['width'], src.profile['height'])).astype(rasterio.uint8), index)
-        #self.extract_metadata(file_name)
+        self.extract_metadata(file_name)
         output = rasterio.open(file_name)
         bounds = src.bounds
         bounds = [bounds.left, bounds.bottom, bounds.right, bounds.top]
@@ -246,7 +244,7 @@ class Browse:
         )
         return meta
 
-    def default_value(self, file_name):
+    def extract_metadata(self, file_name):
         """
         Public:
             Extract metadata from the tiff file together with xml file
@@ -260,61 +258,43 @@ class Browse:
           browse.default_value(<merged_product_filename>)
           # => { 'ProviderProductId': 'bigger_HLS.L30.T17M.2016005.v1.5.tiff' ... }
         """
+        metadata_file_name = file_name.replace("tiff","xml")
+        bucket = self.file_name.split('/')[2]
+        key = "/".join(self.file_name.split('/')[3:])
+        key = key.format("cmr.xml").replace(".tif","")
+        creds = update_credentials.assume_role('arn:aws:iam::611670965994:role/gcc-S3Test','brian_test')
+        s3 = boto3.resource('s3',
+                aws_access_key_id=creds['AccessKeyId'],
+                aws_secret_access_key=creds['SecretAccessKey'],
+                aws_session_token=creds['SessionToken']
+            )
+        obj = s3.Object(bucket,key)
+        granule_metadata = xmltodict.parse(obj.get()["Body"].read().decode('utf-8'))
         metadata = METADATA_FORMAT
-        sensing_time = self.attributes['SENSING_TIME']
-        splitter = '+ ' if '+ ' in sensing_time else '; '
-        time_strs = self.attributes['SENSING_TIME'].split('; ')
-        start_time = self.datetime_from_str(time_strs[0][:26])
-        end_time = self.datetime_from_str(time_strs[-1][:26])
+        start_time = self.datetime_from_str(granule_metadata["Granule"]["Temporal"]["RangeDateTime"]["BeginningDateTime"])
+        end_time = self.datetime_from_str(granule_metadata["Granule"]["Temporal"]["RangeDateTime"]["EndingDateTime"])
         created_timestamp = os.path.getctime(file_name)
         created_date = datetime.datetime.fromtimestamp(created_timestamp)\
             .replace(tzinfo=datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         partial_id, data_day = file_name.split('.')[2:4]
         metadata['ProviderProductId'] = os.path.basename(file_name)
         metadata['PartialId'] = partial_id
-        metadata['DataDay'] = data_day
-        metadata['DataStartDateTime'] = time_strs[0]
-        metadata['DataEndDateTime'] = time_strs[-1]
-        metadata['ProductionDateTime'] = created_date
-        return metadata, start_time, end_time
-
-
-    def extract_metadata(self, file_name):
-        """
-        Public: Extract metadata from the tiff file together with xml file
-                and writes it backout.
-        Args:
-            file_name - Name of the file whose metadata is being created
-
-        Examples
-          browse = Browse(<sampledata>)
-          browse.extract_metadata()
-        """
-        print(file_name)
-        name_array = self.file_name.split('/')
-        print(name_array)
-        bucket = name_array[2]
-        key = "/".join(name_array[3:])
-        metadata_file_name = file_name.replace('.tif', '.xml')
-
-        print(self.attributes['SENSING_TIME'])
-
-        metadata, start_time, end_time = self.default_value(file_name)
-
+        metadata['DataDay'] = data_day.split('T')[0]
         # read data that already exists for the given file
         if os.path.exists(metadata_file_name):
             with open(metadata_file_name) as metadata_file:
-                metadata = xmltodict.parse(metadata_file.read())[ROOT_KEY]
+                existing_metadata = xmltodict.parse(metadata_file.read())[ROOT_KEY]
 
-        file_start_time = self.datetime_from_str(metadata['DataEndDateTime'])
-        file_end_time = self.datetime_from_str(metadata['DataEndDateTime'])
+            file_start_time = self.datetime_from_str(existing_metadata['DataStartDateTime'])
+            file_end_time = self.datetime_from_str(existing_metadata['DataEndDateTime'])
 
-        # overwrite dates if necessary
-        file_start_time = start_time if file_start_time > start_time else file_start_time
-        file_end_time = end_time if file_end_time < end_time else file_end_time
+            # overwrite dates if necessary
+            start_time = file_start_time if file_start_time < start_time else start_time
+            end_time = file_end_time if file_end_time > end_time else end_time
 
-        metadata['DataStartDateTime'] = self.datetime_to_str(file_start_time)
-        metadata['DataEndDateTime'] = self.datetime_to_str(file_end_time)
+        metadata['DataStartDateTime'] = start_time
+        metadata['DataEndDateTime'] = end_time
+        metadata['ProductionDateTime'] = created_date
 
         with open(metadata_file_name, 'wb') as metadata_file:
             metadata_file.write(dicttoxml({ ROOT_KEY: metadata }, root=False, attr_type=False))
@@ -348,4 +328,3 @@ if __name__ == "__main__":
     file_name = sys.argv[1]
     browse = Browse(file_name)
     geotiff_file_name  = browse.prepare()
-    print(geotiff_file_name)
