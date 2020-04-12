@@ -11,7 +11,7 @@ from glob import glob
 # bucket_name = name of the bucket where the hdf files are located
 # profile_name = aws profile name.
 
-def download_and_create(bucket_name,prefix):
+def download_and_create(bucket_name,prefix,process_dateline):
     processed_files = glob('*.xml')
     creds = update_credentials.assume_role('arn:aws:iam::611670965994:role/gcc-S3Test','brian_test')
     s3 = boto3.resource('s3',
@@ -26,15 +26,18 @@ def download_and_create(bucket_name,prefix):
         granule_name_new = obj.key.split('/')[3]
         if granule_name_new != granule_name_old:
             granule_name_old = granule_name_new
-            count +=1
-            file_name = "s3://" + "/".join([bucket_name,obj.key.replace("ACmask","{}")])
+            if (granule_name_new.startswith("HLS.S30.T01") or granule_name_new.startswith("HLS.S30.T60")) and not process_dateline:
+                pass
+            else:
+                count +=1
+                file_name = "s3://" + "/".join([bucket_name,obj.key.replace("ACmask","{}")])
 
-            print("running for:", file_name)
-            browse = Browse(file_name)
-            geotiff_file_name = browse.prepare()
-            del(browse)
-            print("Done:", geotiff_file_name)
-            gc.collect()
+                print("running for:", file_name)
+                browse = Browse(file_name)
+                geotiff_file_name = browse.prepare()
+                del(browse)
+                print("Done:", geotiff_file_name)
+                gc.collect()
 
 def create_and_move_to_folders(extension):
     directories = set()
@@ -64,7 +67,7 @@ def zip_and_push(folder_name):
     s3.upload_file(zip_file,"hls-browse-imagery",key)
 
 run_option = "prod"
-data_day = "2020072"
+data_day = "2020097"
 
 buckets = {
         "debug":"hls-debug-output",
@@ -77,7 +80,7 @@ prefixes = {
         }
 
 # download s30 data and create merged geotiffs.
-download_and_create(buckets[run_option], prefix=prefixes[run_option])
+download_and_create(buckets[run_option], prefix=prefixes[run_option], process_dateline=False)
 
 # move xml files
 folder_name = create_and_move_to_folders('*.xml')
