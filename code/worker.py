@@ -83,6 +83,8 @@ class Browse:
         """
         #data_file = SD(self.file_name, SDC.READ)
         extracted_data = list()
+        # resetting crednetials
+        creds = update_credentials.assume_role('arn:aws:iam::611670965994:role/gcc-S3Test','brian_test')
         for band in self.bands:
             data_file = self.file_name.format(band)
             with rasterio.open(data_file) as src:

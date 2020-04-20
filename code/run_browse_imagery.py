@@ -22,11 +22,11 @@ def download_and_create(bucket_name,prefix,process_dateline):
     bucket = s3.Bucket(bucket_name)
     granule_name_old = None
     count = 0
-    for obj in bucket.objects.filter(Bucket=bucket_name,Prefix=prefix):
+    for obj in list(bucket.objects.filter(Bucket=bucket_name,Prefix=prefix)):
         granule_name_new = obj.key.split('/')[3]
         if granule_name_new != granule_name_old:
             granule_name_old = granule_name_new
-            if (granule_name_new.startswith("HLS.S30.T01") or granule_name_new.startswith("HLS.S30.T60")) and not process_dateline:
+            if (granule_name_new.startswith("HLS.S30.T01") or granule_name_new.startswith("HLS.S30.T60")) and not process_dateline or os.path.exists("true_color/" + granule_name_new + ".tif"):
                 pass
             else:
                 count +=1
@@ -55,8 +55,9 @@ def zip_and_push(folder_name):
     date = folder_name.split("_")[-1][:-1]
     split = folder_name.split("_")[0]
     print(split,date)
-    zip_file = folder_name[:-1] + ".tgz"
-    os.system("tar -czvf " + zip_file + " " + folder_name +  "*")
+    zip_file = "_".join(split,"NBAR", date[0:4],date[4:7]) + ".tgz"
+    os.chdir(folder_name)
+    os.system("tar -czvf " + zip_file + " *")
     creds = update_credentials.assume_role('arn:aws:iam::611670965994:role/gcc-S3Test','brian_test')
     s3 = boto3.client('s3',
             aws_access_key_id=creds['AccessKeyId'],
