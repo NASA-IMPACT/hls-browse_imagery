@@ -41,24 +41,43 @@ def get_granule_list(bucket_name, prefix):
 
     return granule_list
 
+def aggregate_to_grid(browse, file_name,GID,tempfiles):
+    file_name = file_name.split(".")
+    file_name[2] = GID
+    file_name[3] = file_name[3][:7]
+    file_name[-1] ="tiff"
+    name = ".".join(file_name).replace(".{}","")
+    print(name)
+    Browse.put_to_grid(browse, name, tempfiles)
+
+
 mapping = read_mapping("S2","GIBS")
 
-GIDs = mapping.keys()
+GIDs = list(mapping.keys())
 
 GIBS_params = get_params("util/format_params.json")
 
-data_day = "2020098"
+data_day = "2020097"
 bucket_name = "hls-global"
 product = "S30"
 data_type = "data"
-data_file  = "HLS.S30.T{}"
 object_path = "/".join([product,data_type,data_day])
 granule_list = get_granule_list(bucket_name,object_path)
 
+GIDs = ["089119"]
+
 for GID in GIDs:
     S2tiles = get_S2_tiles(mapping, GID)
+    tempfiles = []
+    aggregate = False
     for tile in S2tiles:
-            file_name = granule_list.get(tile, None)
-            if file_name is not None:
-                file_name = file_name.replace("ACmask","{}")
-                Browse(file_name,GID,GIBS_params)
+        file_name = granule_list.get(tile, None)
+        if file_name is not None:
+            aggregate=True
+            print(file_name,GID)
+            granule_name = file_name.split("/")[-1]
+            file_name = file_name.replace("ACmask","{}")
+            browse = Browse(file_name,GID,GIBS_params)
+            tempfiles.append(browse.tmpfile)
+    if aggregate is True:
+        aggregate_to_grid(browse,granule_name,GID,tempfiles)

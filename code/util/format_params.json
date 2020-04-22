@@ -8,7 +8,7 @@
 		"init": "EPSG:4326"
 		},
 	"number_of_bands": 4,
-	"date_format":"%Y-%-m-%dT%H:%M:%S.f",
+	"date_format":"%Y-%m-%dT%H:%M:%S.%f",
 	"metadata_template":{
 		"ProviderProductID": "",
 		"ProductionDateTime":"",
@@ -19,5 +19,5 @@
 		},
 	"root_key": "ImageryMetadata",
 	"path_to_output_files": "./{}",
-	"intermediate_storage_path": "./true_color_new/{}"
+	"intermediate_storage_path": "./single_tifs/{}"
 }
