@@ -10,7 +10,7 @@
 	"number_of_bands": 4,
 	"date_format":"%Y-%m-%dT%H:%M:%S.%fZ",
 	"metadata_template":{
-		"ProviderProductID": "",
+		"ProviderProductId": "",
 		"ProductionDateTime":"",
 		"DataStartDateTime":"",
 		"DataEndDateTime":"",
