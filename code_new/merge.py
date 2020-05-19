@@ -71,8 +71,15 @@ def merge_files(GID):
     output_file[6] = "tiff"
     output_file = ".".join(output_file)
     print(output_file)
-    command = "gdal_merge.py -o " + output_file + " -of gtiff -co TILED=YES -co COMPRESS=LZW " + file_string
-    os.system(command)
+    vrt_options = gdal.BuildVRTOptions(resampleAlg='cubic',)
+    vrt = gdal.BuildVRT("", files, options=options)
+    driver = gdal.GetDriverByName('GeoTiff')
+    output = driver.CreateCopy(output_file, vrt, options=["TILED=YES", "COMPRESS=LZW"])
+    vrt = None # Close out the vrt 
+    output = None # Needed to flush the tiff to disk
+    
+    # command = "gdal_merge.py -o " + output_file + " -of gtiff -co TILED=YES -co COMPRESS=LZW " + file_string
+    # os.system(command)
 
     generate_metadata(start_dates, end_dates, output_file)
     return output_file
