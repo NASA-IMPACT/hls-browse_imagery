@@ -1,34 +1,92 @@
+import boto3
+import datetime
 import glob
-import rasterio
-import rasterio.merge as merge
+import json
+import multiprocessing 
+import os
+from dicttoxml import dicttoxml
+from multiprocessing import Pool
+from osgeo import gdal, osr
 
-file_dir = "output_files"
-output_dir = "merged"
-files = sorted(glob.glob("/".join([file_dir,"*17T*.tif"])))
-GIDs = set()
+def generate_metadata(start_dates,end_dates,output_file):
+    with open("util/format_params.json","r") as f:
+        metadata = json.load(f)["metadata_template"]
+    file_params = output_file.split(".")
+    metadata["ProviderProductId"] = output_file.split("/")[-1]
+    metadata["PartialId"] = file_params[2]
+    metadata["DataStartDateTime"] = min(start_dates)
+    metadata["DataEndDateTime"] = max(end_dates)
+    metadata["ProductionDateTime"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    metadata["DataDay"] = file_params[3]
 
-for file in files:
-    GIDs.add(file.split("_")[-1].split(".")[0])
+    with open(output_file.replace("tiff","xml"), "wb") as meta_file:
+        meta_file.write(dicttoxml({"ImageryMetadata":metadata},root=False,attr_type=False))
 
-for GID in GIDs:
-    files = sorted(glob.glob("/".join([file_dir,f"*{GID}*.tif"])))
-    tiffs = []
-    print(GID)
-    for file in files:
-        tiffs.append(rasterio.open(file,"r"))
-    profile = tiffs[0].profile
-    profile.update(count=4,
-                nodata=0)
-    data, output_meta = merge.merge(tiffs, nodata=0)
-    output_file = file.split(".")
+def assume_role(role_arn,role_session_name):
+    '''
+    This method allows users to assume roles using boto3.
+    Requires the role_arn and a session name. Returns
+    the credentials dictionary (Note that this is not
+    the default dictionary we return creds['Credentials']
+    which means extracting the AWS_ACCESS_KEY_ID should be done
+    simply by providing ['AccessKeyId']. AWS_SECRET_ACCESS_KEY,
+    and AWS_SESSION_TOKEN are extracted similarly using
+    ['SecretAccessKey'],['SessionToken'] respectively.
+    '''
+    client = boto3.client('sts')
+    creds = client.assume_role(RoleArn=role_arn, RoleSessionName=role_session_name)
+    return creds['Credentials']
+
+def zip_and_push(folder_name, file_name):
+    date = file_name.split(".")[3]
+    product = file_name.split(".")[1]
+    zip_file = "_".join([product,"NBAR", date[0:4],date[4:7]]) + ".tgz"
+    os.chdir(folder_name)
+    os.system("tar -czvf " + zip_file + " *")
+    creds = assume_role('arn:aws:iam::611670965994:role/gcc-S3Test','brian_test')
+    s3 = boto3.client('s3',
+            aws_access_key_id=creds['AccessKeyId'],
+            aws_secret_access_key=creds['SecretAccessKey'],
+            aws_session_token=creds['SessionToken']
+            )
+    key = "/".join([product,date[0:4],date[4:7],zip_file])
+    print(key)
+    s3.upload_file(zip_file,"hls-browse-imagery",key)
+
+#for GID in sorted(GIDs):
+def merge_files(GID):
+    files = glob.glob("/".join([file_dir,f"*{GID}*.tif"]))
+    start_dates = [] ; end_dates = []
+    for file in sorted(files):
+        tiff = gdal.Open(file)
+        start_dates.append(tiff.GetMetadata()["START_DATE"])
+        end_dates.append(tiff.GetMetadata()["END_DATE"])
+        tiff = None
+    file_string = " ".join(files)
+    output_file = files[0].split(".")
     output_file[0] = output_file[0].replace(file_dir,output_dir)
     output_file[2] = GID
     output_file[3] = output_file[3].split("T")[0]
     output_file[5] = output_file[5].split("_")[0]
     output_file[6] = "tiff"
     output_file = ".".join(output_file)
-    alpha_values = (255 * (data[:,:,:] != 0).all(0).astype(rasterio.int16))
-    with rasterio.open(output_file, "w", **profile) as geotiff_file:
-        for index in range(1,profile["count"]):
-            geotiff_file.write(data[index-1],index)
-        geotiff_file.write(alpha_values,4)
+    print(output_file)
+    command = "gdal_merge.py -o " + output_file + " -of gtiff -co TILED=YES -co COMPRESS=LZW " + file_string
+    os.system(command)
+
+    generate_metadata(start_dates, end_dates, output_file)
+    return output_file
+
+file_dir = "output_files"
+output_dir = "merged"
+files = glob.glob("/".join([file_dir,"*.tif"]))
+GIDs = set()
+
+for file in sorted(files):
+        GIDs.add(file.split("_")[-1].split(".")[0])
+
+p = Pool(20)
+with p:
+    output_file = p.map(merge_files,GIDs)
+
+zip_and_push(output_dir, output_file)

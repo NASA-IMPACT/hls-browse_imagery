@@ -4,6 +4,7 @@ import json
 import numpy as np
 import math
 import xml.etree.ElementTree as ET
+import xmltodict
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 gdal.UseExceptions()
@@ -23,27 +24,36 @@ high_thresh = math.log(params["upper_threshold"])
 low_value = params["min_DN"]
 high_value = params["max_DN"]
 thresh_diff = high_thresh - low_thresh
-print(params, low_thresh, high_thresh, low_value, high_value, thresh_diff)
+#print(params, low_thresh, high_thresh, low_value, high_value, thresh_diff)
 
 
 def basepath(basename):
     if os.path.isdir(basename):
-        print("found directory", basename)
+        #print("found directory", basename)
         return basename
 
-    tstfile = "{}.B04.tif".format(basename)
+    tstfile = "files/{}.B04.tif".format(basename)
     if os.path.isfile(tstfile):
         indir = os.path.dirname(tstfile)
-        print("found file in directory", indir)
+        #print("found file in directory", indir)
         return indir
 
+def get_metadata(inpath, granulename):
+    meta = os.path.join(inpath, "{}.cmr.xml".format(granulename))
+    with open(meta,"r") as infile:
+        meta_dict = xmltodict.parse(infile.read())
+    dates = meta_dict["Granule"]["Temporal"]["RangeDateTime"]
+    start_date = dates["BeginningDateTime"]
+    end_date = dates["EndingDateTime"]
+    return start_date, end_date
 
 def create_gibs_tiles(basename, savevrt=False, outpath=None):
     inpath = basepath(basename)
     granulename = os.path.basename(basename)
+    start_date, end_date = get_metadata(inpath, granulename)
     if outpath is None:
-        outpath = os.path.join(basedir, "files")
-    print('saving data to', outpath)
+        outpath = os.path.join(basedir, "output_files")
+    #print('saving data to', outpath)
 
     if savevrt:
         merge_vrt = os.path.join(outpath, "{}-color.vrt".format(granulename))
@@ -58,7 +68,7 @@ def create_gibs_tiles(basename, savevrt=False, outpath=None):
     granule = gdal.BuildVRT(merge_vrt, files, options=options)
 
     grid = granulename.split(".")[2][1:]
-    print("finding grid for", grid)
+    #print("finding grid for", grid)
     gibs_tiles = lookup[grid]
 
     for g in gibs_tiles:
@@ -73,9 +83,9 @@ def create_gibs_tiles(basename, savevrt=False, outpath=None):
             vrt_file = ""
 
         tif_file = os.path.join(outpath, "{}_{}.tif".format(granulename, gid))
-        print(outpath, tif_file)
+        #print(outpath, tif_file)
 
-        print("creating warped vrt for", gid, minlon, minlat, maxlon, maxlat)
+        #print("creating warped vrt for", gid, minlon, minlat, maxlon, maxlat)
         vrt = gdal.Warp(
             vrt_file,
             granule,
@@ -102,7 +112,7 @@ def create_gibs_tiles(basename, savevrt=False, outpath=None):
         valid = True
         alpha_arr = np.zeros((cols, rows))
         alpha_arr.fill(255)
-        print("stretching bands for ", gid)
+        #print("stretching bands for ", gid)
         for i in [1, 2, 3]:
             band = vrt.GetRasterBand(i)
             nodata = band.GetNoDataValue()
@@ -111,7 +121,7 @@ def create_gibs_tiles(basename, savevrt=False, outpath=None):
             alpha_arr[nodata_indices] = 0
             arr = np.ma.masked_equal(arr, nodata)
             if not np.any(arr):
-                print("no data found in band", i, gid)
+                #print("no data found in band", i, gid)
                 out = None
                 os.unlink(tif_file)
                 break
@@ -136,6 +146,12 @@ def create_gibs_tiles(basename, savevrt=False, outpath=None):
             new_band.WriteArray(alpha_arr, 0, 0)
             new_band.GetStatistics(0, 1)
 
+            out.SetMetadata(
+                    {
+                        "START_DATE": start_date,
+                        "END_DATE": end_date,
+                }
+            )
         out = None
         band = None
         arr = None
