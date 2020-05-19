@@ -55,6 +55,7 @@ def zip_and_push(folder_name, file_name):
 
 #for GID in sorted(GIDs):
 def merge_files(GID):
+    #print("start time: ", datetime.datetime.now())
     files = glob.glob("/".join([file_dir,f"*{GID}*.tif"]))
     start_dates = [] ; end_dates = []
     for file in sorted(files):
@@ -71,16 +72,19 @@ def merge_files(GID):
     output_file[6] = "tiff"
     output_file = ".".join(output_file)
     print(output_file)
+    #'''
     vrt_options = gdal.BuildVRTOptions(resampleAlg='cubic',)
-    vrt = gdal.BuildVRT("", files, options=options)
-    driver = gdal.GetDriverByName('GeoTiff')
+    vrt = gdal.BuildVRT("", files, options=vrt_options)
+    driver = gdal.GetDriverByName('GTiff')
     output = driver.CreateCopy(output_file, vrt, options=["TILED=YES", "COMPRESS=LZW"])
     vrt = None # Close out the vrt 
     output = None # Needed to flush the tiff to disk
-    
-    # command = "gdal_merge.py -o " + output_file + " -of gtiff -co TILED=YES -co COMPRESS=LZW " + file_string
-    # os.system(command)
-
+    #print("end time: ", datetime.datetime.now())
+    '''
+    command = "gdal_merge.py -o " + output_file + " -of gtiff -co TILED=YES -co COMPRESS=LZW " + file_string
+    os.system(command)
+    print("end time: ", datetime.datetime.now())
+    '''
     generate_metadata(start_dates, end_dates, output_file)
     return output_file
 
@@ -92,7 +96,7 @@ GIDs = set()
 for file in sorted(files):
         GIDs.add(file.split("_")[-1].split(".")[0])
 
-p = Pool(20)
+p = Pool(1)
 with p:
     output_file = p.map(merge_files,GIDs)
 
