@@ -95,9 +95,12 @@ GIDs = set()
 
 for file in sorted(files):
         GIDs.add(file.split("_")[-1].split(".")[0])
-
+start = f"Processing started: {datetime.datetime.now()}"
 p = Pool(1)
 with p:
     output_file = p.map(merge_files,GIDs)
 
 zip_and_push(output_dir, output_file)
+end = f"Processing finished: {datetime.datetime.now()}"
+print(start)
+print(end)

@@ -1,10 +1,13 @@
-import os
-from osgeo import gdal, osr
+import boto3
 import json
-import numpy as np
 import math
+import numpy as np
+import os
 import xml.etree.ElementTree as ET
 import xmltodict
+
+from botocore.exceptions import ClientError
+from osgeo import gdal, osr
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 gdal.UseExceptions()
@@ -47,16 +50,47 @@ def get_metadata(inpath, granulename):
     end_date = dates["EndingDateTime"]
     return start_date, end_date
 
-def create_gibs_tiles(basename, savevrt=False, outpath=None):
+def assume_role(role_arn,role_session_name):
+    client = boto3.client('sts')
+    creds = client.assume_role(RoleArn=role_arn, RoleSessionName=role_session_name)
+    return creds['Credentials']
+
+def movetoS3(tempfile,bucket,tif_file):
+    creds = assume_role('arn:aws:iam::611670965994:role/gcc-S3Test','brian_test')
+    client = boto3.client('s3',
+        aws_access_key_id=creds['AccessKeyId'],
+        aws_secret_access_key=creds['SecretAccessKey'],
+        aws_session_token=creds['SessionToken']
+        )
+    try:
+        response = client.upload_file(tempfile,bucket,tif_file)
+        os.remove(tempfile)
+    except ClientError as e:
+        logging.error(e)
+        return False
+    return True
+
+def create_gibs_tiles(basename, savevrt=False, local=True, bucket=None, outpath=None):
     inpath = basepath(basename)
     granulename = os.path.basename(basename)
     start_date, end_date = get_metadata(inpath, granulename)
     if outpath is None:
-        outpath = os.path.join(basedir, "output_files")
+        output_path = os.path.join(basedir, "output_files")
+    else:
+        output_path = outpath
+    if local == False:
+        filename_components = basename.split(".")
+        product = filename_components[1]
+        date = filename_components[3].split("T")[0]
+        yyyy = date[0:4]
+        ddd = date[4:7]
+        output_path = "/".join([product, yyyy, ddd, outpath])
+        bucket_name = bucket
+
     #print('saving data to', outpath)
 
-    if savevrt:
-        merge_vrt = os.path.join(outpath, "{}-color.vrt".format(granulename))
+    if savevrt == True:
+        merge_vrt = os.path.join(output_path, "{}-color.vrt".format(granulename))
     else:
         merge_vrt = ""
     files = [
@@ -77,17 +111,20 @@ def create_gibs_tiles(basename, savevrt=False, outpath=None):
         minlat = g["minlat"]
         maxlon = g["maxlon"]
         maxlat = g["maxlat"]
-        if savevrt:
-            vrt_file = os.path.join(outpath, "{}_{}.vrt".format(granulename, gid))
+        if savevrt == True:
+            vrt_file = os.path.join(output_path, "{}_{}.vrt".format(granulename, gid))
         else:
             vrt_file = ""
 
-        tif_file = os.path.join(outpath, "{}_{}.tif".format(granulename, gid))
+        tif_file = os.path.join(output_path, "{}_{}.tif".format(granulename, gid))
+        if local == False:
+            tempfile = "{}_{}.tif".format(granulename, gid)
+            tempvrt = ""
         #print(outpath, tif_file)
 
         #print("creating warped vrt for", gid, minlon, minlat, maxlon, maxlat)
         vrt = gdal.Warp(
-            vrt_file,
+            tempvrt,
             granule,
             dstSRS="+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs",
             format="VRT",
@@ -102,7 +139,7 @@ def create_gibs_tiles(basename, savevrt=False, outpath=None):
 
         d = gdal.GetDriverByName("GTiff")
         out = d.Create(
-            tif_file, cols, rows, 4, gdal.GDT_Byte, ["TILED=YES", "COMPRESS=LZW"]
+            tempfile, cols, rows, 4, gdal.GDT_Byte, ["TILED=YES", "COMPRESS=LZW"]
         )
 
         out.SetGeoTransform(vrt.GetGeoTransform())
@@ -123,7 +160,7 @@ def create_gibs_tiles(basename, savevrt=False, outpath=None):
             if not np.any(arr):
                 #print("no data found in band", i, gid)
                 out = None
-                os.unlink(tif_file)
+                os.unlink(tempfile)
                 break
             arr = np.ma.log(arr)
 
@@ -152,6 +189,9 @@ def create_gibs_tiles(basename, savevrt=False, outpath=None):
                         "END_DATE": end_date,
                 }
             )
+
+            result = movetoS3(tempfile, bucket, tif_file)
+
         out = None
         band = None
         arr = None

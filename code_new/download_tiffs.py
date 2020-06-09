@@ -43,7 +43,7 @@ def get_granules(bucket_name, prefix):
             b04 = obj.key.replace("ACmask","B04")
             bucket.download_file(b04, "files/" + granule_name_new + ".B04.tif")
             print("running for granule :", granule_name_new)
-            s2toGIBS.create_gibs_tiles(granule_name_new,outpath="output_files")
+            s2toGIBS.create_gibs_tiles(granule_name_new,local=False,bucket="hls-browse-imagery",outpath="intermediate_files")
             os.system("rm files/" + granule_name_new + "*")
             #os.remove(x) for x in glob.glob("files/" + granule_name_new)
 
