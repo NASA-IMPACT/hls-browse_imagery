@@ -2,8 +2,8 @@ import json
 import math
 import numpy as np
 import os
+import click
 import xmltodict
-
 from osgeo import gdal
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -37,7 +37,11 @@ def get_metadata(inpath, granulename):
     return start_date, end_date
 
 
-def create_gibs_tiles(inputdir, outputdir, basename):
+@click.command()
+@click.argument('inputdir', type=click.Path(exists=True,))
+@click.argument('outputdir', type=click.Path(writable=True,))
+@click.argument('basename', type=click.STRING)
+def granule_to_gibs(inputdir, outputdir, basename):
     start_date, end_date = get_metadata(inputdir, basename)
 
     # if savevrt:
