@@ -5,18 +5,20 @@ import os
 import click
 import xmltodict
 from osgeo import gdal
+from pkg_resources import resource_stream
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 gdal.UseExceptions()
 
 basedir = dir_path
 
-with open(os.path.join(basedir, "data", "format_params.json")) as f:
-    params = json.load(f)
+params = json.load(
+    resource_stream("hls_browse_imagery_creator", "data/format_params.json")
+)
 
-with open(os.path.join(basedir, "data", "mgrs_gibs_intersection.json")) as f:
-    lookup = json.load(f)
-
+lookup = json.load(
+    resource_stream("hls_browse_imagery_creator", "data/mgrs_gibs_intersection.json")
+)
 
 # Pixel Function Template
 low_thresh = math.log(params["lower_threshold"])
@@ -24,7 +26,6 @@ high_thresh = math.log(params["upper_threshold"])
 low_value = params["min_DN"]
 high_value = params["max_DN"]
 thresh_diff = high_thresh - low_thresh
-# print(params, low_thresh, high_thresh, low_value, high_value, thresh_diff)
 
 
 def get_metadata(inpath, granulename):
@@ -38,16 +39,12 @@ def get_metadata(inpath, granulename):
 
 
 @click.command()
-@click.argument('inputdir', type=click.Path(exists=True,))
-@click.argument('outputdir', type=click.Path(writable=True,))
-@click.argument('basename', type=click.STRING)
+@click.argument("inputdir", type=click.Path(exists=True,))
+@click.argument("outputdir", type=click.Path(writable=True,))
+@click.argument("basename", type=click.STRING)
 def granule_to_gibs(inputdir, outputdir, basename):
     start_date, end_date = get_metadata(inputdir, basename)
 
-    # if savevrt:
-        # merge_vrt = os.path.join(outputdir, "{}-color.vrt".format(basename))
-    # else:
-        # merge_vrt = ""
     files = [
         os.path.join(inputdir, "{}.B04.tif".format(basename)),
         os.path.join(inputdir, "{}.B03.tif".format(basename)),
@@ -67,9 +64,7 @@ def granule_to_gibs(inputdir, outputdir, basename):
         maxlat = gibs_tile["maxlat"]
 
         tif = os.path.join(outputdir, "{}_{}.tif".format(basename, gid))
-        # print(outpath, tif_file)
 
-        # print("creating warped vrt for", gid, minlon, minlat, maxlon, maxlat)
         vrt = gdal.Warp(
             tif,
             granule,
@@ -85,9 +80,7 @@ def granule_to_gibs(inputdir, outputdir, basename):
         rows = vrt.RasterYSize
 
         d = gdal.GetDriverByName("GTiff")
-        out = d.Create(
-            tif, cols, rows, 4, gdal.GDT_Byte, ["TILED=YES", "COMPRESS=LZW"]
-        )
+        out = d.Create(tif, cols, rows, 4, gdal.GDT_Byte, ["TILED=YES", "COMPRESS=LZW"])
 
         out.SetGeoTransform(vrt.GetGeoTransform())
         out.SetProjection(vrt.GetProjection())
@@ -95,7 +88,6 @@ def granule_to_gibs(inputdir, outputdir, basename):
         # Rescale Data
         alpha_arr = np.zeros((cols, rows))
         alpha_arr.fill(255)
-        # print("stretching bands for ", gid)
         for i in [1, 2, 3]:
             band = vrt.GetRasterBand(i)
             nodata = band.GetNoDataValue()
@@ -104,7 +96,6 @@ def granule_to_gibs(inputdir, outputdir, basename):
             alpha_arr[nodata_indices] = 0
             arr = np.ma.masked_equal(arr, nodata)
             if not np.any(arr):
-                # print("no data found in band", i, gid)
                 out = None
                 os.unlink(tif)
                 break
@@ -116,7 +107,7 @@ def granule_to_gibs(inputdir, outputdir, basename):
             arr[indices] = high_value * (arr[indices] - low_thresh) / thresh_diff
             arr[nodata_indices] = 0
 
-            # write the data out to new band in tif
+            # Write the data out to new band in tif
             new_band = out.GetRasterBand(i)
             new_band.WriteArray(arr, 0, 0)
             new_band.SetNoDataValue(0)
@@ -130,7 +121,7 @@ def granule_to_gibs(inputdir, outputdir, basename):
             new_band.GetStatistics(0, 1)
 
             out.SetMetadata(
-                {"START_DATE": start_date, "END_DATE": end_date, }
+                {"START_DATE": start_date, "END_DATE": end_date,}
             )
 
         out = None
