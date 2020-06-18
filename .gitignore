@@ -1,0 +1,16 @@
+.DS_Store
+bundle/*
+code/__pycache__/*
+*.pyc
+*.pyo
+__pycache__/
+venv/
+.vscode/
+.tox/
+dist/
+build/
+*.egg-info
+.pytest_cache/
+.vim
+.python-version
+.eggs/
