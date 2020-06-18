@@ -1,4 +1,5 @@
-# hls-browse_imagery - Create and merge GIBS browse imagery for HLS products.
+# hls-browse_imagery
+## Create and merge GIBS browse imagery for HLS products.
 
 Requirements - Requires a system installation of [gdal](https://github.com/OSGeo/gdal)
 
