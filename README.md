@@ -8,7 +8,7 @@ Installation
 pip install .
 ```
 
-Examle Usage
+Example Usage
 ```bash
 granule_to_gibs inputdir outputdir HLS.S30.T01LAH.2020097T222759.v1.5
 ```
