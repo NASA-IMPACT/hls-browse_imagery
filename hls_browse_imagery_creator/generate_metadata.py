@@ -35,5 +35,7 @@ def generate_metadata(inputdir, outputfile, gibsid, mergefilename, day):
 
     with open(outputfile, "wb") as meta_file:
         meta_file.write(
-            dicttoxml({"ImageryMetadata": metadata}, root=False, attr_type=False)
+            dicttoxml.dicttoxml(
+                {"ImageryMetadata": metadata}, root=False, attr_type=False
+            )
         )
