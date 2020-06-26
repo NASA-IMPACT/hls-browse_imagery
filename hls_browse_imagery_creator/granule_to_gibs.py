@@ -121,7 +121,7 @@ def granule_to_gibs(inputdir, outputdir, basename):
             new_band.GetStatistics(0, 1)
 
             out.SetMetadata(
-                {"START_DATE": start_date, "END_DATE": end_date,}
+                {"START_DATE": start_date, "END_DATE": end_date, }
             )
 
         out = None
