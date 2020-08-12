@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="ImageryMetadata">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element type="xs:string" name="ProviderProductId"/>
+        <xs:element type="xs:dateTime" name="ProductionDateTime"/>
+        <xs:element type="xs:dateTime" name="DataStartDateTime"/>
+        <xs:element type="xs:dateTime" name="DataEndDateTime"/>
+        
+        <xs:choice>
+          <xs:element name="DataDay">
+           <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:pattern value="\d{4}\d{3}" />
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:element>
+          <xs:element type="xs:dateTime" name="DataDateTime"/>
+        </xs:choice>
+        
+        <xs:element type="xs:string" name="PartialId" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  
+</xs:schema>

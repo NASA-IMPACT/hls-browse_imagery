@@ -12,7 +12,7 @@ from osgeo import gdal
 @click.argument("gibsid", type=click.STRING)
 @click.argument("mergefilename", type=click.STRING)
 @click.argument("day", type=click.STRING)
-def generate_metadata(inputdir, outputfile, gibsid, mergefilename, day):
+def create_gibs_metadata(inputdir, outputfile, gibsid, mergefilename, day):
     pattern = "*_" + gibsid + ".tif"
     globpath = os.path.join(inputdir, pattern)
     files = glob.glob(globpath)
