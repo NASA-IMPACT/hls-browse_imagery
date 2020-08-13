@@ -13,7 +13,8 @@ os.mkdir(output_dir)
 os.mkdir(merge_dir)
 basename = "HLS.S30.T01LAH.2020097T222759.v1.5"
 gibsid = "320071"
-gibstile = os.path.join(merge_dir, "HLS.S30.2020097.320071.v1.5.tif")
+gibstilebasename = os.path.join(merge_dir, "HLS.S30.2020097.320071.v1.5")
+gibstile = os.path.join(merge_dir, "HLS.S30.2020097.320071.v1.5_1.tif")
 
 
 def test_granule_to_gibs():
@@ -25,9 +26,10 @@ def test_granule_to_gibs():
 
 def test_create_gibs_tile():
     runner = CliRunner()
-    result = runner.invoke(create_gibs_tile, [output_dir, gibstile, gibsid])
+    result = runner.invoke(create_gibs_tile, [output_dir, gibstilebasename, gibsid])
     print(result.exception)
     assert result.exit_code == 0
+    assert result.stdout == gibstile
 
 
 def test_create_gibs_metadata():
