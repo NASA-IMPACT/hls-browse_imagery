@@ -4,6 +4,9 @@ import datetime
 import glob
 import click
 from osgeo import gdal
+from lxml import etree
+from pkg_resources import resource_stream
+from io import BytesIO
 
 
 @click.command()
@@ -12,7 +15,7 @@ from osgeo import gdal
 @click.argument("gibsid", type=click.STRING)
 @click.argument("mergefilename", type=click.STRING)
 @click.argument("day", type=click.STRING)
-def generate_metadata(inputdir, outputfile, gibsid, mergefilename, day):
+def create_gibs_metadata(inputdir, outputfile, gibsid, mergefilename, day):
     pattern = "*_" + gibsid + ".tif"
     globpath = os.path.join(inputdir, pattern)
     files = glob.glob(globpath)
@@ -25,17 +28,21 @@ def generate_metadata(inputdir, outputfile, gibsid, mergefilename, day):
         tiff = None
     metadata = {}
     metadata["ProviderProductId"] = mergefilename
-    metadata["PartialId"] = gibsid
-    metadata["DataStartDateTime"] = min(start_dates)
-    metadata["DataEndDateTime"] = max(end_dates)
     metadata["ProductionDateTime"] = datetime.datetime.utcnow().strftime(
         "%Y-%m-%dT%H:%M:%S.%fZ"
     )
+    metadata["DataStartDateTime"] = min(start_dates)
+    metadata["DataEndDateTime"] = max(end_dates)
     metadata["DataDay"] = day
-
+    metadata["PartialId"] = gibsid
+    schema_file = resource_stream("hls_browse_imagery_creator",
+                                  "data/schema/ImageMetadata_v1.2.xsd")
+    xml = dicttoxml.dicttoxml(
+        {"ImageryMetadata": metadata}, root=False, attr_type=False
+    )
+    xmlschema_doc = etree.parse(schema_file)
+    xmlschema = etree.XMLSchema(xmlschema_doc)
+    doc = etree.parse(BytesIO(xml))
+    xmlschema.assertValid(doc)
     with open(outputfile, "wb") as meta_file:
-        meta_file.write(
-            dicttoxml.dicttoxml(
-                {"ImageryMetadata": metadata}, root=False, attr_type=False
-            )
-        )
+        meta_file.write(xml)

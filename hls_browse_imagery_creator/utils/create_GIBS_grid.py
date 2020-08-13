@@ -1,4 +1,3 @@
-import numpy
 import json
 
 from collections import OrderedDict
