@@ -31,11 +31,10 @@ def create_gibs_metadata(inputdir, outputfile, gibsid, mergefilename, day):
     metadata["ProductionDateTime"] = datetime.datetime.utcnow().strftime(
         "%Y-%m-%dT%H:%M:%S.%fZ"
     )
-    # metadata["PartialId"] = gibsid
     metadata["DataStartDateTime"] = min(start_dates)
     metadata["DataEndDateTime"] = max(end_dates)
     metadata["DataDay"] = day
-
+    metadata["PartialId"] = gibsid
     schema_file = resource_stream("hls_browse_imagery_creator",
                                   "data/schema/ImageMetadata_v1.2.xsd")
     xml = dicttoxml.dicttoxml(
