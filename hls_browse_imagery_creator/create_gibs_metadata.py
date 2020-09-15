@@ -1,40 +1,25 @@
-import os
 import dicttoxml
 import datetime
-import glob
-import click
-from osgeo import gdal
 from lxml import etree
 from pkg_resources import resource_stream
 from io import BytesIO
 
 
-@click.command()
-@click.argument("inputdir", type=click.Path(exists=True,))
-@click.argument("outputfile", type=click.Path(writable=True,))
-@click.argument("gibsid", type=click.STRING)
-@click.argument("mergefilename", type=click.STRING)
-@click.argument("day", type=click.STRING)
-def create_gibs_metadata(inputdir, outputfile, gibsid, mergefilename, day):
-    pattern = "*_" + gibsid + ".tif"
-    globpath = os.path.join(inputdir, pattern)
-    files = glob.glob(globpath)
-    start_dates = []
-    end_dates = []
-    for file in files:
-        tiff = gdal.Open(file)
-        start_dates.append(tiff.GetMetadata()["START_DATE"])
-        end_dates.append(tiff.GetMetadata()["END_DATE"])
-        tiff = None
+def create_gibs_metadata(productid, outputfile, gibsid, start_date, end_date):
     metadata = {}
-    metadata["ProviderProductId"] = mergefilename
+    metadata["ProviderProductId"] = productid
     metadata["ProductionDateTime"] = datetime.datetime.utcnow().strftime(
         "%Y-%m-%dT%H:%M:%S.%fZ"
     )
-    metadata["DataStartDateTime"] = min(start_dates)
-    metadata["DataEndDateTime"] = max(end_dates)
-    metadata["DataDay"] = day
+    metadata["DataStartDateTime"] = start_date
+    metadata["DataEndDateTime"] = end_date
+    date = datetime.datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S.%fZ")
+    year = date.year
+    day_of_year = date.timetuple().tm_yday
+    day = str(day_of_year).zfill(3)
+    metadata["DataDay"] = "{}{}".format(year, day)
     metadata["PartialId"] = gibsid
+
     schema_file = resource_stream("hls_browse_imagery_creator",
                                   "data/schema/ImageMetadata_v1.2.xsd")
     xml = dicttoxml.dicttoxml(

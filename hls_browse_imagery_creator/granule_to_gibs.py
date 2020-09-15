@@ -6,6 +6,7 @@ import click
 import xmltodict
 from osgeo import gdal
 from pkg_resources import resource_stream
+from hls_browse_imagery_creator.create_gibs_metadata import create_gibs_metadata
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 gdal.UseExceptions()
@@ -63,7 +64,11 @@ def granule_to_gibs(inputdir, outputdir, basename):
         maxlon = gibs_tile["maxlon"]
         maxlat = gibs_tile["maxlat"]
 
-        tif = os.path.join(outputdir, "{}_{}.tif".format(basename, gid))
+        gibs_tile_dir = os.path.join(outputdir, gid)
+        os.mkdir(gibs_tile_dir)
+        tif = os.path.join(gibs_tile_dir, "{}_{}.tif".format(basename, gid))
+        xml = os.path.join(gibs_tile_dir, "{}_{}.xml".format(basename, gid))
+        productid = "{}_{}".format(basename, gid)
 
         vrt = gdal.Warp(
             tif,
@@ -123,6 +128,9 @@ def granule_to_gibs(inputdir, outputdir, basename):
             out.SetMetadata(
                 {"START_DATE": start_date, "END_DATE": end_date, }
             )
+            create_gibs_metadata(productid, xml, gid, start_date, end_date)
+        else:
+            os.rmdir(gibs_tile_dir)
 
         out = None
         band = None
