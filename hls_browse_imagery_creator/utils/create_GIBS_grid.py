@@ -5,8 +5,8 @@ import xmltodict
 from collections import OrderedDict
 from shapely.geometry import Polygon
 
-class gibs_mgrs_intersection:
 
+class gibs_mgrs_intersection:
 
     def __init__(self):
         with open("mgrs_gibs_intersection_params.json", "r") as f:
@@ -29,7 +29,7 @@ class gibs_mgrs_intersection:
 
     def get_S2_input(self):
         self.S2_HLS_grid = OrderedDict({"type": "FeatureCollection", "features": []})
-        self.S2_HLS_tiles = set(requests.get(self.s2_params["s2_tile_url"]).text.split("\n"))
+        self.S2_HLS_tiles = requests.get(self.s2_params["s2_tile_url"]).text.split("\n")
         complete_s2_url = self.s2_params[f"{self.s2_params['all_s2_tiles']}_s2_url"]
         S2_all_tiles = requests.get(complete_s2_url)
 
@@ -38,9 +38,8 @@ class gibs_mgrs_intersection:
         elif self.s2_params["all_s2_tiles"] == "kml":
             self.S2_input = xmltodict.parse(S2_all_tiles.text)
         else:
-            print("This code only handles shp and kml as inputs for all_s2_tiles. Exiting.")
+            print("This code accepts shp and kml as input for all_s2_tiles. Exiting.")
             exit()
-
 
     def get_S2grid_from_shp(self):
         print("can't figure this out yet")
@@ -49,14 +48,17 @@ class gibs_mgrs_intersection:
         objects = self.S2_input["kml"]["Document"]["Folder"][0]["Placemark"]
         for obj in objects:
             if obj["name"] in self.S2_HLS_tiles:
-                feature = OrderedDict({"type": "Feature", "properties": {"type":"S2"}, "geometry":{}})
+                feature = OrderedDict({"type": "Feature",
+                                       "properties": {"type": "S2"}, "geometry": {}
+                                       })
                 feature["properties"]["identifier"] = obj["name"]
                 feature["geometry"]["type"] = "MultiPolygon"
                 feature["geometry"]["coordinates"] = []
                 polys = obj["MultiGeometry"]["Polygon"]
                 polys = [polys] if not isinstance(polys, list) else polys
                 for poly in polys:
-                    boundary = poly["outerBoundaryIs"]["LinearRing"]["coordinates"].split(" ")
+                    boundary = poly["outerBoundaryIs"]["LinearRing"]["coordinates"]
+                    boundary = boundary.split(" ")
                     coordinates = []
                     for coord in boundary:
                         ll = [float(x) for x in coord.split(",")]
@@ -67,7 +69,7 @@ class gibs_mgrs_intersection:
         if self.s2_params["write_s2_file"]:
             print(f"Writing reference S2 HLS grid to {self.s2_params['output_filepath']}")
             with open(self.s2_params["s2_output_filepath"], "w") as f:
-                json.dump(self.S2_HLS_grid,f)
+                json.dump(self.S2_HLS_grid, f)
 
     def get_GIBSgrid(self):
         min_lon = self.gibs_params.get("min_lon", -180)
@@ -76,33 +78,33 @@ class gibs_mgrs_intersection:
         max_lat = self.gibs_params.get("max_lat", 90)
         resolution = self.gibs_params.get("resolution_in_degrees", None)
         if resolution is None:
-            print("resolution is a required field in units of degrees. Exiting now()")
-        filename = self.gibs_params.get("GIBS_grid_file_name", "GIBS_grid.json").format(resolution)
-        nx = int((max_lon - min_lon)/resolution)
-        ny = int((max_lat - min_lat)/resolution)
-        for i in range(1, nx+1):
-            for j in range(1, ny+1):
+            print("Resolution is a required field (units in degrees). Exiting now()")
+        nx = int((max_lon - min_lon) / resolution)
+        ny = int((max_lat - min_lat) / resolution)
+        for i in range(1, nx + 1):
+            for j in range(1, ny + 1):
                 GID = "{0:0>3}".format(i) + "{0:0>3}".format(j)
                 coordinates = [[
-                [min_lon+(i-1)*resolution, min_lat+(j-1)*resolution],
-                [min_lon+(i)*resolution, min_lat+(j-1)*resolution],
-                [min_lon+(i)*resolution, min_lat+(j)*resolution],
-                [min_lon+(i-1)*resolution, min_lat+(j)*resolution],
-                [min_lon+(i-1)*resolution, min_lat+(j-1)*resolution]
+                    [min_lon + (i - 1) * resolution, min_lat + (j - 1) * resolution],
+                    [min_lon + (i) * resolution, min_lat + (j - 1) * resolution],
+                    [min_lon + (i) * resolution, min_lat + (j) * resolution],
+                    [min_lon + (i - 1) * resolution, min_lat + (j) * resolution],
+                    [min_lon + (i - 1) * resolution, min_lat + (j - 1) * resolution]
                 ]]
 
                 feature = OrderedDict()
                 feature["type"] = "Feature"
                 feature["properties"] = {"identifier": GID}
                 feature["geometry"] = {
-                              "type": "Polygon",
-                              "coordinates": coordinates
-                              }
+                    "type": "Polygon",
+                    "coordinates": coordinates
+                }
                 self.GIBS_grid["features"].append(feature)
 
         if self.gibs_params["write_gibs_file"]:
-            with open(self.gibs_params["gibs_output_file_name"].format(resolution),"w") as f:
-                json.dump(self.GIBS_grid,f)
+            gibs_filename = self.gibs_params["gibs_output_file_name"].format(resolution)
+            with open(gibs_filename, "w") as f:
+                json.dump(self.GIBS_grid, f)
 
     def get_intersection(self):
         for s2tile in self.S2_HLS_grid["features"]:
@@ -115,12 +117,12 @@ class gibs_mgrs_intersection:
                     gibs_poly = Polygon(gibstile["geometry"]["coordinates"][0])
                     if gibs_poly.intersects(s2_poly):
                         tile_info = {
-                                "GID": gibstile["properties"]["identifier"],
-                                "minlon": gibs_poly.bounds[0],
-                                "minlat": gibs_poly.bounds[1],
-                                "maxlon": gibs_poly.bounds[2],
-                                "maxlat": gibs_poly.bounds[3]
-                                }
+                            "GID": gibstile["properties"]["identifier"],
+                            "minlon": gibs_poly.bounds[0],
+                            "minlat": gibs_poly.bounds[1],
+                            "maxlon": gibs_poly.bounds[2],
+                            "maxlat": gibs_poly.bounds[3]
+                        }
                         self.mgrs_gibs_mapping[id].append(tile_info)
             if len(self.mgrs_gibs_mapping[id]) == 0:
                 print(id)
@@ -128,6 +130,6 @@ class gibs_mgrs_intersection:
             with open(self.lookup_params["lookup_output_filepath"], "w") as f:
                 json.dump(self.mgrs_gibs_mapping, f)
 
+
 if __name__ == "__main__":
     gibs_mgrs_intersection()
-
