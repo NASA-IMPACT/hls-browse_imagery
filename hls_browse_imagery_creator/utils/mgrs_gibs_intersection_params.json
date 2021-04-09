@@ -9,9 +9,10 @@
     "gibs_output_file_name": "gibs_reference_layers/GIBS_grid_{}.json"
   },
   "S2": {
-    "s2_tile_url": "https://raw.githubusercontent.com/NASA-IMPACT/hls-land_tiles/master/HLS.land.tiles.txt",
+    "s2_tile_url": "https://raw.githubusercontent.com/NASA-IMPACT/hls-land_tiles/brian/HLS.land.tiles.txt",
     "shp_s2_url": "https://github.com/NASA-IMPACT/hls-land_tiles/blob/master/all_s2_tiles/s2_tiles.shp?raw=true",
     "kml_s2_url": "https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml/ec05e22c-a2bc-4a13-9e84-02d5257b09a8",
+    "path_to_mgrs_shp": "<path_to_shapefile>",
     "all_s2_tiles": "kml",
     "write_s2_file": false,
     "s2_output_filepath": "gibs_reference_layers/S2_HLS_grid.json"
