@@ -1,0 +1,24 @@
+{
+  "GIBS": {
+    "min_lon": -180,
+    "max_lon": 180,
+    "min_lat": -90,
+    "max_lat": 90,
+    "resolution_in_degrees": 1.125,
+    "write_gibs_file": false,
+    "gibs_output_file_name": "gibs_reference_layers/GIBS_grid_{}.json"
+  },
+  "S2": {
+    "s2_tile_url": "https://raw.githubusercontent.com/NASA-IMPACT/hls-land_tiles/brian/HLS.land.tiles.txt",
+    "shp_s2_url": "https://github.com/NASA-IMPACT/hls-land_tiles/blob/master/all_s2_tiles/s2_tiles.shp?raw=true",
+    "kml_s2_url": "https://sentinel.esa.int/documents/247904/1955685/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml/ec05e22c-a2bc-4a13-9e84-02d5257b09a8",
+    "kml_mgrs_url": "https://opendata.arcgis.com/datasets/b294795270aa4fb3bd25286bf09edc51_0.kml",
+    "all_s2_tiles": "kml",
+    "write_s2_file": false,
+    "s2_output_filepath": "gibs_reference_layers/S2_HLS_grid.json"
+  },
+  "Lookup": {
+    "create_lookup": true,
+    "lookup_output_filepath": "mgrs_gibs_lookup.json"
+  }
+}
