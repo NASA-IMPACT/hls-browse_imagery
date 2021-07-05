@@ -9,7 +9,7 @@ setup(
         "numpy",
         "gdal",
         "xmltodict",
-        "click",
+        "click~=7.1.0",
         "dicttoxml",
         "lxml"
     ],
