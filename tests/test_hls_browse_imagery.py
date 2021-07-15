@@ -5,8 +5,8 @@ from hls_browse_imagery_creator.granule_to_gibs import granule_to_gibs
 
 current_dir = os.path.dirname(__file__)
 data_dir = os.path.join(current_dir, "data")
-basename = "HLS.S30.T01LAH.2020097T222759.v1.5"
-gibsid = "320071"
+basename = "HLS.S30.T01LAC.2021183T221941.v1.5"
+gibsid = "320066"
 
 
 def test_granule_to_gibs(tmpdir):

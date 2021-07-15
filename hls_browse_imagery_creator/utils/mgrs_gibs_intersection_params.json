@@ -19,6 +19,6 @@
   },
   "Lookup": {
     "create_lookup": true,
-    "lookup_output_filepath": "mgrs_gibs_lookup.json"
+    "lookup_output_filepath": "../data/mgrs_gibs_intersection.json"
   }
 }

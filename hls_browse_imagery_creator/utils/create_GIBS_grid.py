@@ -21,7 +21,8 @@ class gibs_mgrs_intersection:
         if self.s2_params["all_s2_tiles"] == "kml":
             self.get_S2grid_from_kml()
         else:
-            self.get_S2grid_from_shp()
+            print("code only accepts kml as s2 input data format. Exiting now")
+            exit()
         self.GIBS_grid = OrderedDict({"type": "FeatureCollection", "features": []})
         self.get_GIBSgrid()
         self.mgrs_gibs_mapping = OrderedDict()
@@ -32,17 +33,7 @@ class gibs_mgrs_intersection:
         self.S2_HLS_tiles = requests.get(self.s2_params["s2_tile_url"]).text.split("\n")
         complete_s2_url = self.s2_params[f"{self.s2_params['all_s2_tiles']}_s2_url"]
         S2_all_tiles = requests.get(complete_s2_url)
-
-        if self.s2_params["all_s2_tiles"] == "shp":
-            self.S2_input = self.S2_all_tiles.content.decode("iso-8859-1")
-        elif self.s2_params["all_s2_tiles"] == "kml":
-            self.S2_input = xmltodict.parse(S2_all_tiles.text)
-        else:
-            print("This code accepts shp and kml as input for all_s2_tiles. Exiting.")
-            exit()
-
-    def get_S2grid_from_shp(self):
-        print("can't figure this out yet")
+        self.S2_input = xmltodict.parse(S2_all_tiles.text)
 
     def get_S2grid_from_kml(self):
         objects = self.S2_input["kml"]["Document"]["Folder"][0]["Placemark"]
