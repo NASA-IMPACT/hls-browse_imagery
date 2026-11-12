@@ -11,7 +11,8 @@ setup(
         "xmltodict",
         "click",
         "dicttoxml",
-        "lxml"
+        "lxml",
+        "importlib_resources; python_version < '3.9'",
     ],
     extras_require={"test": ["pytest", "flake8"]},
     package_data={"hls_browse_imagery_creator": ["data/*.json",

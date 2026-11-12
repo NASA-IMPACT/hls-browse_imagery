@@ -5,7 +5,10 @@ import os
 import click
 import xmltodict
 from osgeo import gdal
-from pkg_resources import resource_stream
+try:
+    from importlib.resources import files as resource_files
+except ImportError:  # Python < 3.9
+    from importlib_resources import files as resource_files
 from hls_browse_imagery_creator.create_gibs_metadata import create_gibs_metadata
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -13,12 +16,16 @@ gdal.UseExceptions()
 
 basedir = dir_path
 
-params = json.load(
-    resource_stream("hls_browse_imagery_creator", "data/format_params.json")
+params = json.loads(
+    resource_files("hls_browse_imagery_creator")
+    .joinpath("data/format_params.json")
+    .read_bytes()
 )
 
-lookup = json.load(
-    resource_stream("hls_browse_imagery_creator", "data/mgrs_gibs_intersection.json")
+lookup = json.loads(
+    resource_files("hls_browse_imagery_creator")
+    .joinpath("data/mgrs_gibs_intersection.json")
+    .read_bytes()
 )
 
 # Pixel Function Template
