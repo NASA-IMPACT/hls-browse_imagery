@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="hls_browse_imagery_creator",
-    version="1.8",
+    version="1.9",
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,
     install_requires=[
@@ -11,7 +11,8 @@ setup(
         "xmltodict",
         "click",
         "dicttoxml",
-        "lxml"
+        "lxml",
+        "importlib_resources; python_version < '3.9'",
     ],
     extras_require={"test": ["pytest", "flake8"]},
     package_data={"hls_browse_imagery_creator": ["data/*.json",
